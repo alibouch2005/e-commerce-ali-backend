@@ -11,7 +11,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        //
+        $middleware->statefulApi(); // Middleware pour gérer les requêtes authentifiées à l'API, en utilisant les cookies de session
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
