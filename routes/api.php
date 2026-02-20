@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\auth\LoginController;
+use App\Http\Controllers\auth\LogoutController;
 use App\Http\Controllers\RegisterController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -12,5 +13,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/user', function (Request $request) {
         return $request->user(); // Route pour récupérer les informations de l'utilisateur connecté
     });
+    Route::post('/logout', [LogoutController::class, 'logout']); // Route pour la déconnexion des utilisateurs, accessible uniquement aux utilisateurs authentifiés
 });
 
