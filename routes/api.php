@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
-use App\Http\Controllers\RegisterController;
+use App\Http\Controllers\auth\RegisterController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
