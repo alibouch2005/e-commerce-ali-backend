@@ -6,13 +6,75 @@ use App\Http\Controllers\RegisterController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/login', [LoginController::class, 'login'])->middleware('guest'); // Route pour la connexion des utilisateurs, accessible uniquement aux invités (non authentifiés)
-Route::post('/register', [RegisterController::class, 'register'])->middleware('guest'); // Route pour l'inscription des utilisateurs, accessible uniquement aux invités (non authentifiés)
-Route::middleware('auth:sanctum')->group(function () {
-    // Routes protégées par l'authentification Sanctum, accessibles uniquement aux utilisateurs authentifiés
-    Route::get('/user', function (Request $request) {
-        return $request->user(); // Route pour récupérer les informations de l'utilisateur connecté
-    });
-    Route::post('/logout', [LogoutController::class, 'logout']); // Route pour la déconnexion des utilisateurs, accessible uniquement aux utilisateurs authentifiés
-});
+/*
+|--------------------------------------------------------------------------
+| Public Routes
+|--------------------------------------------------------------------------
+*/
 
+Route::post('/login', [LoginController::class, 'login'])->middleware('guest');
+Route::post('/register', [RegisterController::class, 'register'])->middleware('guest');
+
+/*
+|--------------------------------------------------------------------------
+| Authenticated Routes
+|--------------------------------------------------------------------------
+*/
+
+Route::middleware('auth:sanctum')->group(function () {
+
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
+
+    Route::post('/logout', [LogoutController::class, 'logout']);
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/admin/dashboard', function () {
+            return response()->json(['message' => 'Admin access']);
+        });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Livreur Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:livreur')->group(function () {
+        Route::get('/livreur/orders', function () {
+            return response()->json(['message' => 'Livreur access']);
+        });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin + Livreur
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:admin,livreur')->group(function () {
+        Route::get('/livraisons', function () {
+            return response()->json(['message' => 'Gestion livraisons']);
+        });
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Client Routes
+    |--------------------------------------------------------------------------
+    */
+    Route::middleware('role:client')->group(function () {
+        Route::get('/client/profile', function () {
+            return response()->json(['message' => 'Espace client']);
+        });
+
+        Route::get('/client/orders', function () {
+            return response()->json(['message' => 'Mes commandes']);
+        });
+    });
+
+});

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -12,6 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi(); // Middleware pour gérer les requêtes authentifiées à l'API, en utilisant les cookies de session
+        $middleware->alias([
+            'role' => RoleMiddleware::class, // Alias pour le middleware de gestion des rôles, permettant de l'utiliser facilement dans les routes
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
