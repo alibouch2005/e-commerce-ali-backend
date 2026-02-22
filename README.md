@@ -1,4 +1,10 @@
 # E-commerce API – Gestion des Commandes et Livraison
+![PHP](https://img.shields.io/badge/PHP-8.2+-777BB4?style=flat&logo=php)
+![Laravel](https://img.shields.io/badge/Laravel-12-FF2D20?style=flat&logo=laravel)
+![MySQL](https://img.shields.io/badge/MySQL-4479A1?style=flat&logo=mysql)
+![Sanctum](https://img.shields.io/badge/Laravel-Sanctum-FF2D20?style=flat&logo=laravel)
+![API](https://img.shields.io/badge/API-RESTful-brightgreen)
+![Status](https://img.shields.io/badge/Status-Active-success)
 
 Backend de l'application **E-commerce**, une plateforme de vente en ligne avec gestion des **produits**, **commandes** et **livraisons**, inspirée du fonctionnement du site **Marjane**.  
 Cette API permet aux **clients** de commander des produits en ligne et à un **administrateur** de gérer l’ensemble du système.
