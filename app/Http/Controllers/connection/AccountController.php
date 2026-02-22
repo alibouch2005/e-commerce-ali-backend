@@ -3,8 +3,10 @@
 namespace App\Http\Controllers\connection;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Connection\ChangePasswordRequest;
 use App\Http\Requests\Connection\UpdateRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 
 class AccountController extends Controller
 {
@@ -27,5 +29,11 @@ class AccountController extends Controller
         auth()->guard('web')->logout(); // Déconnecte l'utilisateur en utilisant le guard 'web'
         $user->delete(); // Supprime l'utilisateur de la base de données
         return response()->json(['message' => "Account delete"]);
+    }
+    function changePassword(ChangePasswordRequest $request)
+    {
+        $user = $request->user(); // Récupère l'utilisateur actuellement authentifié à partir de la requête
+        $user->update(['password'=>Hash::make($request->new_password)]);// Met à jour le mot de passe de l'utilisateur dans la base de données avec le nouveau mot de passe haché
+        return response()->json(['message' => "Password changed successfully"]);
     }
 }

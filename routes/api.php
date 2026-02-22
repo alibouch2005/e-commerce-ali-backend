@@ -26,6 +26,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('', 'show');
         Route::put('', 'update');
         Route::delete('', 'delete');
+        Route::patch('/change-password', 'changePassword');
     });
     Route::post('/logout', [LogoutController::class, 'logout']);
 });
