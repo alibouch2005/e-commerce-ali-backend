@@ -90,3 +90,14 @@ Il constitue une base solide pour un site de vente en ligne professionnel, inspi
 
 Projet réalisé par : **[ALI BOUCHOUAR]**  
 Année : **2025 / 2026**
+
+
+
+# 🛒 E-commerce API – Gestion des Commandes et Livraison
+
+![PHP](https://img.shields.io/badge/PHP-8.2+-blue?logo=php)
+![Laravel](https://img.shields.io/badge/Laravel-12-red?logo=laravel)
+![MySQL](https://img.shields.io/badge/MySQL-Database-blue?logo=mysql)
+![Sanctum](https://img.shields.io/badge/Auth-Sanctum-green)
+![License](https://img.shields.io/badge/License-MIT-yellow)
+![Status](https://img.shields.io/badge/Status-In%20Progress-orange)
