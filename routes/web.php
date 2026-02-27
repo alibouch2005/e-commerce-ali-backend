@@ -1,10 +1,9 @@
 <?php
-// traitements
 
 use App\Http\Controllers\Auth\PasswordResetController;
 use Illuminate\Support\Facades\Route;
 
-/*|--------------------------------------------------------------------------
+/*|
     | Password Reset Routes
     |--------------------------------------------------------------------------*/
 
