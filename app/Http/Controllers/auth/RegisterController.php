@@ -18,3 +18,4 @@ class RegisterController extends Controller
         return response()->json(['user' => $user], 201); // Retourne une réponse JSON avec les informations de l'utilisateur nouvellement créé et un code de statut 201 (Created)
     }
 }
+

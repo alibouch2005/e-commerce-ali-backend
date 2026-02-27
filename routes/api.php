@@ -25,17 +25,7 @@ Route::post('/register', [RegisterController::class, 'register'])->middleware('g
 /*|--------------------------------------------------------------------------
     | Admin Routes
     |--------------------------------------------------------------------------*/
-    /*|--------------------------------------------------------------------------
-    | Password Reset Routes
-    |--------------------------------------------------------------------------*/
-// affichage des formulaires
-Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('password.request');
-Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
-
-// traitements
-Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
-Route::post('/reset-password', [PasswordResetController::class, 'reset']);
-
+   
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes
