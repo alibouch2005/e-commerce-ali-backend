@@ -14,4 +14,11 @@ class Category extends Model
         'name',
         'description'
     ];
+
+    // Category 1 ─── n Product (une catégorie peut avoir plusieurs produits)
+
+    public function products()
+    {
+        return $this->hasMany(Product::class);// definire la relation de catégorie à produit
+    }
 }

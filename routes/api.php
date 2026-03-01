@@ -5,6 +5,7 @@ use App\Http\Controllers\auth\LogoutController;
 use App\Http\Controllers\auth\PasswordResetController;
 use App\Http\Controllers\auth\RegisterController;
 use App\Http\Controllers\connection\AccountController;
+use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,7 +26,7 @@ Route::post('/register', [RegisterController::class, 'register'])->middleware('g
 /*|--------------------------------------------------------------------------
     | Admin Routes
     |--------------------------------------------------------------------------*/
-   
+
 /*
 |--------------------------------------------------------------------------
 | Authenticated Routes
@@ -47,9 +48,6 @@ Route::middleware('auth:sanctum')->group(function () {
     // Route pour la déconnexion, accessible à tous les utilisateurs authentifiés
     Route::post('/logout', [LogoutController::class, 'logout']);
 
-    
-
-
     /*|--------------------------------------------------------------------------
     | Category Routes
     |--------------------------------------------------------------------------*/
@@ -64,4 +62,22 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/categories/{category}', [CategoryController::class, 'update']);
         Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
     });
+
+    /*|--------------------------------------------------------------------------
+    | Product Routes
+    |--------------------------------------------------------------------------*/
+
+    // Routes accessibles à tous les utilisateurs authentifiés
+
+    Route::get('/products', [ProductController::class, 'index']);
+    Route::get('/products/{product}', [ProductController::class, 'show']);
+
+    // Routes admin uniquement
+
+    Route::middleware('role:admin')->group(function () {
+        Route::post('/products', [ProductController::class, 'store']);
+        Route::put('/products/{product}', [ProductController::class, 'update']);
+        Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+    });
+
 });
