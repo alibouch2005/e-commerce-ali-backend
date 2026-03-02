@@ -2,7 +2,6 @@
 
 use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
-use App\Http\Controllers\auth\PasswordResetController;
 use App\Http\Controllers\auth\RegisterController;
 use App\Http\Controllers\connection\AccountController;
 use App\Http\Controllers\tables\ProductController;
