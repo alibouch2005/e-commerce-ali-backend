@@ -24,4 +24,9 @@ class Product extends Model
     {
         return $this->belongsTo(Category::class);// definire la relation de produit à catégorie
     }
+
+    public function cartItems()
+    {
+        return $this->hasMany(CartItem::class);
+    }
 }

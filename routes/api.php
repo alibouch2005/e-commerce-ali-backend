@@ -4,6 +4,7 @@ use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
 use App\Http\Controllers\auth\RegisterController;
 use App\Http\Controllers\connection\AccountController;
+use App\Http\Controllers\tables\CartController;
 use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
 use Illuminate\Support\Facades\Route;
@@ -78,5 +79,19 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/products/{product}', [ProductController::class, 'update']);
         Route::delete('/products/{product}', [ProductController::class, 'destroy']);
     });
+    /*|--------------------------------------------------------------------------
+    | Cart Routes
+    |--------------------------------------------------------------------------*/
+   Route::middleware('role:client')->group(function () {
+    // Routes pour la gestion du panier, accessibles à tous les utilisateurs authentifiés
+    Route::prefix('/cart')->controller(CartController::class)->group(function () {
+        Route::get('', 'index');
+        Route::post('/add', 'add');
+        Route::put('/update-quantity/{cartItem}', 'updateQuantity');
+        Route::delete('/remove/{cartItem}', 'remove');
+        Route::delete('/clear', 'clear');
+    });
+
+  });
 
 });
