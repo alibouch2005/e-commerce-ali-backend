@@ -27,4 +27,10 @@ class Order extends Model
     {
         return $this->hasMany(OrderItem::class);
     }
+
+    // Order 1 ─── 1 Delivery (une commande peut avoir une seule livraison associée)
+    public function delivery()
+    {
+        return $this->hasOne(Delivery::class);
+    }
 }

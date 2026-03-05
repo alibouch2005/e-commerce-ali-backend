@@ -7,6 +7,7 @@ use App\Http\Controllers\connection\AccountController;
 use App\Http\Controllers\tables\CartController;
 use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
+use App\Http\Controllers\tables\DeliveryController;
 use App\Http\Controllers\tables\OrderController;
 use Illuminate\Support\Facades\Route;
 
@@ -95,11 +96,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
 
-//    /*|--------------------------------------------------------------------------
-//    | Order Routes
-//    |--------------------------------------------------------------------------*/
+    //    /*|--------------------------------------------------------------------------
+    //    | Order Routes
+    //    |--------------------------------------------------------------------------*/
 
-  // Routes pour la gestion des commandes, accessibles à tous les utilisateurs authentifiés
+    // Routes pour la gestion des commandes, accessibles à tous les utilisateurs authentifiés
     Route::middleware('role:client')->group(function () {
 
         Route::post('/checkout', [OrderController::class, 'checkout']);
@@ -110,6 +111,25 @@ Route::middleware('auth:sanctum')->group(function () {
     // Routes admin uniquement pour la gestion des commandes
     Route::middleware('role:admin')->group(function () {
 
+        Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
+        Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
         Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    });
+    /*|--------------------------------------------------------------------------
+    | Delivery Routes
+    |--------------------------------------------------------------------------*/
+
+    // Routes pour la gestion des livraisons, accessibles à tous les utilisateurs authentifiés
+
+    Route::middleware('role:admin')->group(function () {
+
+        Route::post('/deliveries/assign', [DeliveryController::class, 'assign']);
+    });
+
+    // Routes pour les livreurs uniquement pour la gestion de leurs livraisons
+    Route::middleware('role:livreur')->group(function () {
+
+        Route::get('/deliveries', [DeliveryController::class, 'myDeliveries']);
+        Route::put('/deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus']);
     });
 });
