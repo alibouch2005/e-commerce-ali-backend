@@ -6,8 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\Tables\AddToCartRequest;
 use App\Http\Requests\Tables\UpdateCartItemRequest;
-use App\Http\Resources\CartItemResource;
-use App\Http\Resources\CartResource;
+use App\Http\Resources\Api\CartResource;
 use App\Models\Cart;
 use App\Models\Product;
 use App\Models\CartItem;
@@ -32,7 +31,7 @@ class CartController extends Controller
     public function index(Request $request)
     {
         $cart = $this->getOrCreateCart($request->user());
-        $cart->load('items.product');
+        $cart->load('items.product');// evite N+1 queries en chargeant les produits liés aux items du panier
 
         // Retourne la ressource Cart complète avec items et totaux calculés
         return new CartResource($cart);

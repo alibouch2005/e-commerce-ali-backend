@@ -15,10 +15,13 @@ class CartItem extends Model
         'price'
         ];
 
+    // CartItem n ─── 1 Cart (plusieurs items de panier peuvent appartenir à un même panier)
     public function cart()
     {
         return $this->belongsTo(Cart::class);
-    }    
+    }  
+    
+    // CartItem n ─── 1 Product (plusieurs items de panier peuvent référencer le même produit)
     public function product()
     {
         return $this->belongsTo(Product::class);

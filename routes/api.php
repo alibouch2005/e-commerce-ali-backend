@@ -7,6 +7,7 @@ use App\Http\Controllers\connection\AccountController;
 use App\Http\Controllers\tables\CartController;
 use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
+use App\Http\Controllers\tables\OrderController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -82,16 +83,33 @@ Route::middleware('auth:sanctum')->group(function () {
     /*|--------------------------------------------------------------------------
     | Cart Routes
     |--------------------------------------------------------------------------*/
-   Route::middleware('role:client')->group(function () {
-    // Routes pour la gestion du panier, accessibles à tous les utilisateurs authentifiés
-    Route::prefix('/cart')->controller(CartController::class)->group(function () {
-        Route::get('', 'index');
-        Route::post('/add', 'add');
-        Route::put('/update-quantity/{cartItem}', 'updateQuantity');
-        Route::delete('/remove/{cartItem}', 'remove');
-        Route::delete('/clear', 'clear');
+    Route::middleware('role:client')->group(function () {
+        // Routes pour la gestion du panier, accessibles à tous les utilisateurs authentifiés
+        Route::prefix('/cart')->controller(CartController::class)->group(function () {
+            Route::get('', 'index');
+            Route::post('/add', 'add');
+            Route::put('/update-quantity/{cartItem}', 'updateQuantity');
+            Route::delete('/remove/{cartItem}', 'remove');
+            Route::delete('/clear', 'clear');
+        });
     });
 
-  });
 
+//    /*|--------------------------------------------------------------------------
+//    | Order Routes
+//    |--------------------------------------------------------------------------*/
+
+  // Routes pour la gestion des commandes, accessibles à tous les utilisateurs authentifiés
+    Route::middleware('role:client')->group(function () {
+
+        Route::post('/checkout', [OrderController::class, 'checkout']);
+        Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}', [OrderController::class, 'show']);
+    });
+
+    // Routes admin uniquement pour la gestion des commandes
+    Route::middleware('role:admin')->group(function () {
+
+        Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+    });
 });

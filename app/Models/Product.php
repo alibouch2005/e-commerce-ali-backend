@@ -25,8 +25,15 @@ class Product extends Model
         return $this->belongsTo(Category::class);// definire la relation de produit à catégorie
     }
 
+    // Product n ─── n CartItem (un produit peut être dans plusieurs items de panier différents)
     public function cartItems()
     {
         return $this->hasMany(CartItem::class);
+    }
+
+    // Product n ─── n OrderItem (un produit peut être dans plusieurs items de commande différents)
+    public function orderItems()
+    {
+        return $this->hasMany(OrderItem::class);
     }
 }
