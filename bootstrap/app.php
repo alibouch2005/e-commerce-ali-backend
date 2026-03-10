@@ -17,6 +17,9 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => RoleMiddleware::class, // Alias pour le middleware de gestion des rôles, permettant de l'utiliser facilement dans les routes
         ]);
+        $middleware->validateCsrfTokens(except: [
+        'api/*',
+    ]); // Middleware pour valider les tokens CSRF, en excluant les routes de l'API qui sont généralement utilisées pour les requêtes AJAX et ne nécessitent pas de token CSRF
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //
