@@ -14,9 +14,13 @@ return new class extends Migration
         Schema::create('carts', function (Blueprint $table) {
             $table->id();
             $table->foreignId('user_id')
+            ->nullable()
             ->constrained()
-            ->onDelete('cascade');
+            ->nullOnDelete(); // Si l'utilisateur est supprimé, le champ user_id devient null
+            $table->string('guest_token')->nullable()->unique();
             $table->timestamps();
+             $table->unique('user_id');
+           
         });
     }
 
