@@ -5,7 +5,7 @@ namespace App\Http\Controllers\tables;
 use App\Http\Controllers\Controller;
 use App\Models\Delivery;
 use App\Models\Order;
-use App\Models\User;
+
 use Illuminate\Http\Request;
 use App\Http\Requests\Tables\AssignDeliveryRequest;
 use App\Http\Requests\Tables\UpdateDeliveryStatusRequest;
@@ -53,7 +53,7 @@ class DeliveryController extends Controller
 
         if($request->status === 'livree'){
             $delivery->update([
-                'date_livree' => now()
+                'date_livraison' => now()
             ]);
         }
 

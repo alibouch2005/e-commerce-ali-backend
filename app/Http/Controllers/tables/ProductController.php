@@ -17,8 +17,8 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Product::with('category');
-        // Eager loading pour éviter N+1 query
+        $query = Product::query();// Base query
+        
 
         //  Filtrer par catégorie
         if ($request->category_id) {
@@ -30,9 +30,9 @@ class ProductController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        return ProductResource::collection(
-            $query->paginate(10)
-        );
+        $products = $query->with('category')->paginate(10);
+
+        return ProductResource::collection($products);
     }
 
     /**
@@ -54,7 +54,7 @@ class ProductController extends Controller
 
         //  Upload image si envoyée
         if ($request->hasFile('image')) {
-            $data['image'] = $request->file('image')
+            $data['image'] = '/storage/' . $request->file('image')
                 ->store('products', 'public');
         }
 
@@ -105,7 +105,8 @@ class ProductController extends Controller
     {
         // Supprimer image associée
         if ($product->image) {
-            Storage::disk('public')->delete($product->image);
+            $path = str_replace('/storage/', '', $product->image);
+            Storage::disk('public')->delete($path);
         }
 
         $product->delete();
