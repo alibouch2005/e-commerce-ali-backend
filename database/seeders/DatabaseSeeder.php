@@ -36,10 +36,14 @@ class DatabaseSeeder extends Seeder
         ]);
 
         // 10 catégories
-        Category::factory(10)->create();
+        $categories = Category::factory(10)->create();
 
             
              // 20 Products
-        Product::factory()->count(20)->create();
+        
+        Product::factory(20)->make()->each(function ($product) use ($categories) {
+            $product->category_id = $categories->random()->id;
+            $product->save();
+        });
     }
 }
