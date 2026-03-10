@@ -25,6 +25,14 @@ Route::get('/register', [RegisterController::class, 'showForm'])->name('register
 Route::post('/login', [LoginController::class, 'login'])->middleware('guest');
 Route::post('/register', [RegisterController::class, 'register'])->middleware('guest');
 
+/*
+|--------------------------------------------------------------------------
+| Public Catalogue Routes
+|--------------------------------------------------------------------------
+*/
+
+require __DIR__.'/Catalogue.php';
+
 /*|--------------------------------------------------------------------------
     | Admin Routes
     |--------------------------------------------------------------------------*/
@@ -55,14 +63,16 @@ Route::middleware('auth:sanctum')->group(function () {
     |--------------------------------------------------------------------------*/
 
     // Routes accessibles à tous les utilisateurs authentifiés
-    Route::get('/categories', [CategoryController::class, 'index']);
-    Route::get('/categories/{category}', [CategoryController::class, 'show']);
+    Route::prefix('admin/categories')->controller(CategoryController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/{category}', 'show');
+    });
 
     // Routes admin uniquement
     Route::middleware('role:admin')->group(function () {
-        Route::post('/categories', [CategoryController::class, 'store']);
-        Route::put('/categories/{category}', [CategoryController::class, 'update']);
-        Route::delete('/categories/{category}', [CategoryController::class, 'destroy']);
+        Route::post('/admin/categories', [CategoryController::class, 'store']);
+        Route::put('/admin/categories/{category}', [CategoryController::class, 'update']);
+        Route::delete('/admin/categories/{category}', [CategoryController::class, 'destroy']);
     });
 
     /*|--------------------------------------------------------------------------
@@ -71,22 +81,24 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Routes accessibles à tous les utilisateurs authentifiés
 
-    Route::get('/products', [ProductController::class, 'index']);
-    Route::get('/products/{product}', [ProductController::class, 'show']);
+    Route::prefix('admin/products')->controller(ProductController::class)->group(function () {
+        Route::get('/', 'index');
+        Route::get('/{product}', 'show');
+    });
 
     // Routes admin uniquement
 
     Route::middleware('role:admin')->group(function () {
-        Route::post('/products', [ProductController::class, 'store']);
-        Route::put('/products/{product}', [ProductController::class, 'update']);
-        Route::delete('/products/{product}', [ProductController::class, 'destroy']);
+        Route::post('/admin/products', [ProductController::class, 'store']);
+        Route::put('/admin/products/{product}', [ProductController::class, 'update']);
+        Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
     });
     /*|--------------------------------------------------------------------------
     | Cart Routes
     |--------------------------------------------------------------------------*/
     Route::middleware('role:client')->group(function () {
         // Routes pour la gestion du panier, accessibles à tous les utilisateurs authentifiés
-        Route::prefix('/cart')->controller(CartController::class)->group(function () {
+        Route::prefix('/user/cart')->controller(CartController::class)->group(function () {
             Route::get('', 'index');
             Route::post('/add', 'add');
             Route::put('/update-quantity/{cartItem}', 'updateQuantity');
