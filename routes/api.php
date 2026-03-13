@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
+use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\auth\RegisterController;
 use App\Http\Controllers\connection\AccountController;
 use App\Http\Controllers\tables\CartController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\tables\CategoryController;
 use App\Http\Controllers\tables\DeliveryController;
 use App\Http\Controllers\tables\OrderController;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -25,6 +27,16 @@ Route::get('/register', [RegisterController::class, 'showForm'])->name('register
 Route::post('/login', [LoginController::class, 'login'])->middleware('guest');
 Route::post('/register', [RegisterController::class, 'register'])->middleware('guest');
 
+// Routes pour la réinitialisation du mot de passe
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
+Route::get('/reset-password/{token}', function ($token, Request $request) {
+
+    $email = $request->query('email');
+
+    return redirect("http://localhost:3000/reset-password?token=$token&email=$email");
+
+})->name('password.reset');
+Route::post('/reset-password', [PasswordResetController::class, 'reset']);
 /*
 |--------------------------------------------------------------------------
 | Public Catalogue Routes
