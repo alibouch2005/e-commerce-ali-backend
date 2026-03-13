@@ -9,21 +9,25 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     public function index(Request $request)
-    {
-        $query = Product::with('category');
+{
+    $query = Product::with('category');
 
-        // if ($request->has('category_id')) {
-        //     $query->where('category_id', $request->category_id);
-        // }
-
-        // Utilisation de filled() pour vérifier que category_id est présent et non vide
-        if ($request->filled('category_id')) {
-    $query->where('category_id', $request->category_id);
-}
-
-        $products = $query->paginate(12);
-        return response()->json($products);
+    // filtre catégorie
+    if ($request->filled('category_id')) {
+        $query->where('category_id', $request->category_id);
     }
+
+    // recherche produit
+    if ($request->filled('search')) {
+        $query->where('name', 'like', '%' . $request->search . '%');
+    }
+
+     $products = $query
+            ->latest() // tri par date (plus récent d'abord)
+            ->paginate(12);
+
+    return response()->json($products);
+}
     
     public function show(Product $product)
     {
