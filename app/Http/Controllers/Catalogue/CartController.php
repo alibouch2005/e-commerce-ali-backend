@@ -16,37 +16,46 @@ class CartController extends Controller
     /**
      * Return an existing cart or create one (guest or user)
      */
-    private function getOrCreateCart(Request $request): Cart
+    private function getOrCreateCart(Request $request): callable
     {
-        // User connecté
+        // utilisateur connecté
         if ($request->user()) {
-            return Cart::firstOrCreate([
+            $cart = Cart::firstOrCreate([
                 'user_id' => $request->user()->id,
             ]);
+
+            return [$cart, null];
         }
 
-        // Guest
-        $guestToken = $request->session()->get('guest_token');
+        // guest
+        $guestToken = $request->cookie('guest_token');
 
         if (!$guestToken) {
             $guestToken = Str::uuid()->toString();
-            $request->session()->put('guest_token', $guestToken);
         }
 
-        return Cart::firstOrCreate([
+        $cart = Cart::firstOrCreate([
             'guest_token' => $guestToken,
         ]);
-    }
 
+        return [$cart, $guestToken];
+    }
     /**
      * List cart items
      */
     public function index(Request $request)
     {
-        $cart = $this->getOrCreateCart($request);
+        [$cart, $guestToken] = $this->getOrCreateCart($request);
+
         $cart->load('items.product');
 
-        return new CartResource($cart);
+        $response = (new CartResource($cart))->response();
+
+        if ($guestToken) {
+            $response->cookie('guest_token', $guestToken, 60 * 24 * 30);
+        }
+
+        return $response;
     }
 
     /**
@@ -54,7 +63,7 @@ class CartController extends Controller
      */
     public function add(AddToCartRequest $request)
     {
-        $cart = $this->getOrCreateCart($request);
+        [$cart, $guestToken] = $this->getOrCreateCart($request);
 
         //$product = Product::findOrFail($request->product_id);
         $product = Product::where('id', $request->product_id)
@@ -83,11 +92,19 @@ class CartController extends Controller
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
                 'quantity' => $request->quantity,
-                'price_at_addition' => $product->price,
+                'price' => $product->price
             ]);
         }
 
-        return new CartResource($cart->fresh('items.product'));
+        $response = (new CartResource(
+            $cart->fresh('items.product')
+        ))->response();
+
+        if ($guestToken) {
+            $response->cookie('guest_token', $guestToken, 60 * 24 * 30);
+        }
+
+        return $response;
     }
     public function updateQuantity(Request $request, CartItem $cartItem)
     {
