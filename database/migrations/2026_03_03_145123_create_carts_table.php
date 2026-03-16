@@ -17,9 +17,9 @@ return new class extends Migration
             ->nullable()
             ->constrained()
             ->nullOnDelete(); // Si l'utilisateur est supprimé, le champ user_id devient null
-            $table->string('guest_token')->nullable()->unique();
+            $table->string('guest_token')->nullable()->index();
             $table->timestamps();
-             $table->unique('user_id');
+             //$table->unique('user_id');
            
         });
     }

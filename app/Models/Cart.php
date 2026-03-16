@@ -8,7 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class Cart extends Model
 {
     use HasFactory;
-    protected $fillable = ['user_id'];
+    protected $fillable = [
+        'user_id',
+        'guest_token',
+        
+        ];
 
 
     // Cart n ─── 1 User (un panier appartient à un seul utilisateur)

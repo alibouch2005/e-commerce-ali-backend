@@ -14,14 +14,15 @@ use Illuminate\Support\Str;
 class CartController extends Controller
 {
     /**
-     * Return an existing cart or create one (guest or user)
+     * Get existing cart or create one
      */
-    private function getOrCreateCart(Request $request): callable
+    private function getOrCreateCart(Request $request)
     {
         // utilisateur connecté
         if ($request->user()) {
+
             $cart = Cart::firstOrCreate([
-                'user_id' => $request->user()->id,
+                'user_id' => $request->user()->id
             ]);
 
             return [$cart, null];
@@ -35,13 +36,14 @@ class CartController extends Controller
         }
 
         $cart = Cart::firstOrCreate([
-            'guest_token' => $guestToken,
+            'guest_token' => $guestToken
         ]);
 
         return [$cart, $guestToken];
     }
+
     /**
-     * List cart items
+     * Show cart
      */
     public function index(Request $request)
     {
@@ -65,40 +67,41 @@ class CartController extends Controller
     {
         [$cart, $guestToken] = $this->getOrCreateCart($request);
 
-        //$product = Product::findOrFail($request->product_id);
         $product = Product::where('id', $request->product_id)
             ->where('stock', '>', 0)
             ->firstOrFail();
 
         $item = $cart->items()->where('product_id', $product->id)->first();
 
-        $currentQuantity = $item ? $item->quantity : 0;
-        $newTotalQty = $currentQuantity + $request->quantity;
+        $currentQty = $item ? $item->quantity : 0;
+        $newQty = $currentQty + $request->quantity;
 
-        // check stock
-        if ($newTotalQty > $product->stock) {
+        if ($newQty > $product->stock) {
             return response()->json([
-                'message' => 'Stock insuffisant',
-                'available' => $product->stock - $currentQuantity,
+                'message' => 'Stock insuffisant'
             ], 422);
         }
 
         if ($item) {
+
             $item->update([
-                'quantity' => $newTotalQty,
+                'quantity' => $newQty
             ]);
+
         } else {
+
             CartItem::create([
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
                 'quantity' => $request->quantity,
                 'price' => $product->price
             ]);
+
         }
 
-        $response = (new CartResource(
-            $cart->fresh('items.product')
-        ))->response();
+        $cart->load('items.product');
+
+        $response = (new CartResource($cart))->response();
 
         if ($guestToken) {
             $response->cookie('guest_token', $guestToken, 60 * 24 * 30);
@@ -106,6 +109,10 @@ class CartController extends Controller
 
         return $response;
     }
+
+    /**
+     * Update quantity
+     */
     public function updateQuantity(Request $request, CartItem $cartItem)
     {
         $request->validate([
@@ -124,23 +131,27 @@ class CartController extends Controller
             'quantity' => $request->quantity
         ]);
 
-        $cartItem->load('product');
-
-        return response()->json($cartItem);
+        return response()->json($cartItem->fresh('product'));
     }
 
+    /**
+     * Remove product
+     */
     public function remove(CartItem $cartItem)
     {
         $cartItem->delete();
 
         return response()->json([
-            'message' => 'Produit supprimé du panier'
+            'message' => 'Produit supprimé'
         ]);
     }
 
+    /**
+     * Clear cart
+     */
     public function clear(Request $request)
     {
-        $cart = $this->getOrCreateCart($request);
+        [$cart] = $this->getOrCreateCart($request);
 
         $cart->items()->delete();
 
