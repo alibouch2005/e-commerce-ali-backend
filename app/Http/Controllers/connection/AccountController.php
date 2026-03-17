@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\connection;
+namespace App\Http\Controllers\Connection;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Connection\ChangePasswordRequest;
@@ -10,31 +10,63 @@ use Illuminate\Support\Facades\Hash;
 
 class AccountController extends Controller
 {
-    
-   public function show(Request $request)
+    // Afficher le profil
+    public function show(Request $request)
     {
-        $user = $request->user(); // Récupère l'utilisateur actuellement authentifié à partir de la requête
-        return response()->json(['User' => $user]);//return response()->json(['message' => 'AccountController show']);
+        return response()->json([
+            'user' => $request->user()
+        ]);
+    }
 
-    }
-   public function update(UpdateRequest $request)
+    // Mettre à jour le profil
+    public function update(UpdateRequest $request)
     {
-        $user = $request->user(); // Récupère l'utilisateur actuellement authentifié à partir de la requête
-        $data =$request->validated(); // Valide les données de la requête en utilisant les règles définies dans UpdateRequest
-        $user->update($data); // Met à jour les informations de l'utilisateur dans la base de données avec les données validées
-        return response()->json(['message' => "Account update", 'user' => $user]);
+        $user = $request->user();
+        $user->update($request->validated());
+
+        return response()->json([
+            'message' => 'Account updated successfully',
+            'user' => $user
+        ]);
     }
-  public function delete(Request $request)
+
+    // Supprimer le compte
+    public function delete(Request $request)
     {
-        $user = $request->user(); // Récupère l'utilisateur actuellement authentifié à partir de la requête
-        auth()->guard('web')->logout(); // Déconnecte l'utilisateur en utilisant le guard 'web'
-        $user->delete(); // Supprime l'utilisateur de la base de données
-        return response()->json(['message' => "Account delete"]);
+        $user = $request->user();
+
+        // Supprimer tous les tokens
+        $user->tokens()->delete();
+
+        // Supprimer utilisateur
+        $user->delete();
+
+        return response()->json([
+            'message' => 'Account deleted successfully'
+        ]);
     }
+
+    // Changer mot de passe
     public function changePassword(ChangePasswordRequest $request)
-    {
-        $user = $request->user(); // Récupère l'utilisateur actuellement authentifié à partir de la requête
-        $user->update(['password'=>Hash::make($request->new_password)]);// Met à jour le mot de passe de l'utilisateur dans la base de données avec le nouveau mot de passe haché
-        return response()->json(['message' => "Password changed successfully"]);
+{
+    $user = $request->user();
+
+    // Vérifier l'ancien mot de passe
+    if (!Hash::check($request->current_password, $user->password)) {
+        return response()->json([
+            'message' => 'Current password incorrect'
+        ], 422);
     }
+
+    // Mettre à jour le nouveau mot de passe
+    $user->update([
+        'password' => Hash::make($request->new_password)
+    ]);
+
+    
+
+    return response()->json([
+        'message' => 'Password changed successfully'
+    ]);
+}
 }
