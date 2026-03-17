@@ -26,7 +26,7 @@ class ChangePasswordRequest extends FormRequest
     {
         return [
             // (current_password) Vérifie automatiquement que le mot de passe actuel est correct grâce à la règle de validation "current_password"
-            'current_password' => 'required|string|min:8', // Le mot de passe actuel est requis, doit être une chaîne de caractères et doit comporter au moins 8 caractères
+            'current_password' => ['required', 'current_password'], // Le mot de passe actuel est requis, doit être une chaîne de caractères et doit comporter au moins 8 caractères
             'new_password' => 'required|string|min:8|confirmed', // Le nouveau mot de passe est requis, doit être une chaîne de caractères, doit comporter au moins 8 caractères et doit être confirmé (doit correspondre à un champ new_password_confirmation)
             'new_password_confirmation' => 'required|string|min:8', // Le champ de confirmation du nouveau mot de passe est requis, doit être une chaîne de caractères et doit comporter au moins 8 caractères
         ];
