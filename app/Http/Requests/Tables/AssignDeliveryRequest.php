@@ -11,7 +11,7 @@ class AssignDeliveryRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,8 @@ class AssignDeliveryRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'order_id' => 'required|exists:orders,id',
+            'livreur_id' => 'required|exists:users,id',
         ];
     }
 }
