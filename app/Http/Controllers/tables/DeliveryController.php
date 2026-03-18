@@ -13,23 +13,19 @@ use App\Http\Resources\Api\DeliveryResource;
 
 class DeliveryController extends Controller
 {
+// ADMIN : assigner livreur
+public function assign(AssignDeliveryRequest $request)
+{
+    $delivery = Delivery::create([
+        'order_id' => $request->order_id,
+        'livreur_id' => $request->livreur_id,
+        'status' => 'preparing'
+    ]);
 
-    // ADMIN : assigner livreur
-    public function assign(AssignDeliveryRequest $request)
-    {
-
-        $order = Order::findOrFail($request->order_id);
-
-        $delivery = Delivery::create([
-            'order_id' => $request->order_id,
-            'livreur_id' => $request->livreur_id,
-            'status' => 'en_preparation'
-        ]);
-
-        return new DeliveryResource(
-            $delivery->load('order','livreur')
-        );
-    }
+    return new DeliveryResource(
+        $delivery->load('order', 'livreur')
+    );
+}
 
     // LIVREUR : voir ses livraisons
     public function myDeliveries(Request $request)
@@ -43,21 +39,19 @@ class DeliveryController extends Controller
         return DeliveryResource::collection($deliveries);
     }
 
-    // LIVREUR : changer statut
     public function updateStatus(UpdateDeliveryStatusRequest $request, Delivery $delivery)
-    {
+{
+    $delivery->update([
+        'status' => $request->status
+    ]);
 
+    if ($request->status === 'delivered') {
         $delivery->update([
-            'status' => $request->status
+            'date_livraison' => now()
         ]);
-
-        if($request->status === 'livree'){
-            $delivery->update([
-                'date_livraison' => now()
-            ]);
-        }
-
-        return new DeliveryResource($delivery);
     }
+
+    return new DeliveryResource($delivery);
+}
 
 }
