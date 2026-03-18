@@ -11,7 +11,7 @@ class UpdateDeliveryStatusRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        return false;
+        return true;
     }
 
     /**
@@ -22,7 +22,7 @@ class UpdateDeliveryStatusRequest extends FormRequest
     public function rules(): array
     {
         return [
-            //
+            'status' => 'required|in:pending,preparing,shipping,delivered',
         ];
     }
 }
