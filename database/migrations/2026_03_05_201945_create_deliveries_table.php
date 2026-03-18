@@ -21,8 +21,12 @@ return new class extends Migration
                 ->constrained('users')
                 ->onDelete('set null');
             // Status enum must include default value or adjust default
-            $table->enum('status', ['En attente', 'En preparation', 'En livraison', 'Livree'])
-                ->default('En attente');
+            $table->enum('status', [
+                'pending',
+                'preparing',
+                'shipping',
+                'delivered'
+            ])->default('pending');
             $table->timestamp('date_livraison')->nullable();
             $table->timestamps();
         });
