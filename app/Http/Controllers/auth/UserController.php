@@ -9,11 +9,11 @@ use Illuminate\Http\Request;
 class UserController extends Controller
 {
     public function index(Request $request)
-    {
-        if ($request->has('role')) {
-            return User::where('role', $request->role)->get();
-        }
-
-        return User::all();
+{
+    if ($request->has('role')) {
+        return User::where('role', $request->role)->get();
     }
+
+    return User::all();
+}
 }
