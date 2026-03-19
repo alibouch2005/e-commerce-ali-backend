@@ -4,12 +4,14 @@ use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
 use App\Http\Controllers\Auth\PasswordResetController;
 use App\Http\Controllers\auth\RegisterController;
+use App\Http\Controllers\auth\UserController;
 use App\Http\Controllers\connection\AccountController;
 use App\Http\Controllers\tables\CartController;
 use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
 use App\Http\Controllers\tables\DeliveryController;
 use App\Http\Controllers\tables\OrderController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
 
@@ -49,13 +51,16 @@ require __DIR__.'/Catalogue.php';
     | Admin Routes
     |--------------------------------------------------------------------------*/
 
-/*
-|--------------------------------------------------------------------------
-| Authenticated Routes
-|--------------------------------------------------------------------------
-*/
-
-Route::middleware('auth:sanctum')->group(function () {
+    // Route pour récupérer les utilisateurs par rôle (admin uniquement)
+    
+    /*
+    |--------------------------------------------------------------------------
+    | Authenticated Routes
+    |--------------------------------------------------------------------------
+    */
+    
+    Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/users', [UserController::class, 'index']);
     Route::prefix('/user')->controller(AccountController::class)->group(function () {
         Route::get('', 'show');
         Route::put('', 'update');
