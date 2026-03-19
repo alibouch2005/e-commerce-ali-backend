@@ -116,4 +116,18 @@ class OrderController extends Controller
             'order' => $order
         ]);
     }
+    public function stats()
+    {
+        return response()->json([
+            'total_orders' => Order::count(),
+            'total_revenue' => Order::sum('total_price'),
+
+            'status' => [
+                'pending' => Order::where('status', 'En attente')->count(),
+                'preparation' => Order::where('status', 'Preparation')->count(),
+                'expedie' => Order::where('status', 'Expedie')->count(),
+                'livre' => Order::where('status', 'Livre')->count(),
+            ]
+        ]);
+    }
 }
