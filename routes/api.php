@@ -51,7 +51,7 @@ require __DIR__.'/Catalogue.php';
     | Admin Routes
     |--------------------------------------------------------------------------*/
 
-    // Route pour récupérer les utilisateurs par rôle (admin uniquement)
+    
     
     /*
     |--------------------------------------------------------------------------
@@ -60,6 +60,15 @@ require __DIR__.'/Catalogue.php';
     */
     
     Route::middleware('auth:sanctum')->group(function () {
+        Route::get('/notifications', function (Request $request) {
+
+    return [
+        [
+            "message" => "Nouvelle commande assignée 🚚"
+        ]
+    ];
+
+});
     Route::get('/users', [UserController::class, 'index']);
     Route::prefix('/user')->controller(AccountController::class)->group(function () {
         Route::get('', 'show');
@@ -161,4 +170,5 @@ require __DIR__.'/Catalogue.php';
         Route::get('/deliveries', [DeliveryController::class, 'myDeliveries']);
         Route::put('/deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus']);
     });
+    Route::middleware('role:admin')->get('/admin/stats', [OrderController::class, 'stats']);
 });
