@@ -22,6 +22,7 @@ class OrderController extends Controller
 
         return OrderResource::collection($orders);
     }
+
     // List all orders for admin
     public function adminIndex()
     {
@@ -54,13 +55,13 @@ class OrderController extends Controller
             'total_price' => 0,
             'adresse_livraison' => $request->adresse_livraison,
             'phone' => $request->phone,
-            'payment_method' => $request->payment_method
+            'payment_method' => $request->payment_method,
+            'status' => 'pending' // 🔥 IMPORTANT
         ]);
 
         foreach ($cart->items as $item) {
 
             $subtotal = $item->quantity * $item->product->price;
-
             $total += $subtotal;
 
             $order->items()->create([
@@ -92,6 +93,7 @@ class OrderController extends Controller
             $order->load('items.product')
         );
     }
+
     // Show a single order for admin
     public function adminShow(Order $order)
     {
@@ -104,7 +106,7 @@ class OrderController extends Controller
     public function updateStatus(Request $request, Order $order)
     {
         $request->validate([
-            'status' => 'required|in:En attente,Preparation,Expedie,Livre'
+            'status' => 'required|in:pending,preparing,shipping,delivered'
         ]);
 
         $order->update([
@@ -116,18 +118,32 @@ class OrderController extends Controller
             'order' => $order
         ]);
     }
+
+    // ADMIN STATS - Total orders, revenue, status breakdown
     public function stats()
     {
         return response()->json([
             'total_orders' => Order::count(),
             'total_revenue' => Order::sum('total_price'),
 
+            'delivered_orders' => Order::where('status', 'delivered')->count(),
+            'pending_orders' => Order::where('status', 'pending')->count(),
+
             'status' => [
-                'pending' => Order::where('status', 'En attente')->count(),
-                'preparation' => Order::where('status', 'Preparation')->count(),
-                'expedie' => Order::where('status', 'Expedie')->count(),
-                'livre' => Order::where('status', 'Livre')->count(),
+                'pending' => Order::where('status', 'pending')->count(),
+                'preparing' => Order::where('status', 'preparing')->count(),
+                'shipping' => Order::where('status', 'shipping')->count(),
+                'delivered' => Order::where('status', 'delivered')->count(),
             ]
         ]);
     }
+    public function salesByDay()
+{
+    $data = Order::selectRaw('DATE(created_at) as date, SUM(total_price) as total')
+        ->groupBy('date')
+        ->orderBy('date', 'ASC')
+        ->get();
+
+    return response()->json($data);
+}
 }
