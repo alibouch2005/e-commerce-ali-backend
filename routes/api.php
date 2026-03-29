@@ -171,4 +171,7 @@ require __DIR__.'/Catalogue.php';
         Route::put('/deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus']);
     });
     Route::middleware('role:admin')->get('/admin/stats', [OrderController::class, 'stats']);
+    Route::middleware('role:admin')->group(function () {
+    Route::get('/admin/stats/sales', [OrderController::class, 'salesByDay']);
+});
 });
