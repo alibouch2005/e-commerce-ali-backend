@@ -120,23 +120,32 @@ class OrderController extends Controller
     }
 
     // ADMIN STATS - Total orders, revenue, status breakdown
-    public function stats()
-    {
-        return response()->json([
-            'total_orders' => Order::count(),
-            'total_revenue' => Order::sum('total_price'),
+  public function stats()
+{
+    return response()->json([
+        'total_orders' => Order::count(),
 
-            'delivered_orders' => Order::where('status', 'delivered')->count(),
-            'pending_orders' => Order::where('status', 'pending')->count(),
+        'total_revenue' => Order::sum('total_price'),
 
-            'status' => [
-                'pending' => Order::where('status', 'pending')->count(),
-                'preparing' => Order::where('status', 'preparing')->count(),
-                'shipping' => Order::where('status', 'shipping')->count(),
-                'delivered' => Order::where('status', 'delivered')->count(),
-            ]
-        ]);
-    }
+        'delivered_orders' => Order::where('status', 'delivered')->count(),
+        
+
+        //  commandes par jour (7 derniers jours)
+        'orders_per_day' => Order::selectRaw('DATE(created_at) as date, COUNT(*) as total')
+            ->groupBy('date')
+            ->orderBy('date', 'asc')
+            ->take(7)
+            ->get(),
+
+        //  commandes par statut
+        'status' => [
+            'pending' => Order::where('status', 'pending')->count(),
+            'preparing' => Order::where('status', 'preparing')->count(),
+            'shipping' => Order::where('status', 'shipping')->count(),
+            'delivered' => Order::where('status', 'delivered')->count(),
+        ]
+    ]);
+}
     public function salesByDay()
 {
     $data = Order::selectRaw('DATE(created_at) as date, SUM(total_price) as total')
