@@ -48,7 +48,8 @@ class PasswordResetController extends Controller
         );
 
         if ($status === Password::PASSWORD_RESET) {
-            return view('auth.password-reset-success'); // Affiche une page de succès après la réinitialisation du mot de passe
-        }
+            return response()->json(['message' => 'Mot de passe réinitialisé avec succès'], 200);
+         }
+        
     }
 }
