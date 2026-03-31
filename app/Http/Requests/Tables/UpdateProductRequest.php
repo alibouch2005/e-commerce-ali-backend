@@ -27,7 +27,7 @@ class UpdateProductRequest extends FormRequest
             'description'=>'sometimes|nullable|string',
             'price'=>'sometimes|numeric|min:0',
             'stock'=>'sometimes|integer|min:0',
-            'image'=>'sometimes|nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // Vous pouvez ajuster cette règle en fonction de la manière dont vous gérez les images (par exemple, si vous utilisez des fichiers téléchargés, vous pourriez utiliser 'image' au lieu de 'string')
+            'image'=>'sometimes|nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // Vous pouvez ajuster cette règle en fonction de la manière dont vous gérez les images (par exemple, si vous utilisez des fichiers téléchargés, vous pourriez utiliser 'image' au lieu de 'string')
             'category_id'=>'sometimes|exists:categories,id',// Vérifie que la catégorie existe dans la table categories
 
         ];
