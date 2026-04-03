@@ -152,6 +152,10 @@ require __DIR__.'/Catalogue.php';
         Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
         Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
         Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        // routes/api.php
+        Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::get('/admin/sales-by-day', [OrderController::class, 'salesByDay']);
+        Route::get('/admin/stats', [OrderController::class, 'stats']);
     });
     /*|--------------------------------------------------------------------------
     | Delivery Routes
