@@ -10,6 +10,7 @@ class Order extends Model
     use HasFactory;
     protected $fillable = [
         'user_id',
+        'livreur_id',
         'total_price',
         'adresse_livraison',
         'phone',
@@ -33,4 +34,9 @@ class Order extends Model
     {
         return $this->hasOne(Delivery::class);
     }
+    // Order n ─── 1 Livreur (plusieurs commandes peuvent être assignées à un même livreur)
+   public function livreur()
+{
+    return $this->belongsTo(User::class, 'livreur_id');
+}
 }
