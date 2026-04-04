@@ -7,6 +7,7 @@ use App\Http\Requests\Tables\CheckoutRequest;
 use App\Http\Resources\Api\OrderResource;
 use App\Models\Cart;
 use App\Models\Order;
+use App\Models\User;
 use Illuminate\Http\Request;
 
 class OrderController extends Controller
@@ -154,5 +155,55 @@ class OrderController extends Controller
         ->get();
 
     return response()->json($data);
+}
+public function assignLivreur(Request $request, Order $order)
+{
+    $request->validate([
+        'livreur_id' => 'required|exists:users,id'
+    ]);
+
+    $order->update([
+        'livreur_id' => $request->livreur_id,
+        'status' => 'shipping'
+    ]);
+
+    return response()->json([
+        'message' => 'Livreur assigné',
+        'order' => $order
+    ]);
+}
+public function livreurs()
+{
+    return response()->json(
+        User::where('role', 'livreur')->get()
+    );
+}
+public function livreurOrders(Request $request)
+{
+    // On récupère TOUTES les commandes assignées à ce livreur
+    $orders = Order::where('livreur_id', $request->user()->id)
+        ->with(['items.product', 'user']) 
+        ->latest()
+        ->get();
+
+    return OrderResource::collection($orders);
+}
+public function livreurUpdateStatus(Request $request, Order $order)
+{
+    // Vérification de sécurité : est-ce bien le livreur assigné ?
+    if ($order->livreur_id !== $request->user()->id) {
+        return response()->json(['message' => 'Non autorisé'], 403);
+    }
+
+    // On autorise la mise à jour si la commande est en préparation ou déjà en cours de livraison
+    // Si tu veux juste marquer comme "Livré", enlève la condition if ($order->status !== ...)
+    $order->update([
+        'status' => 'delivered'
+    ]);
+
+    return response()->json([
+        'message' => 'Commande livrée ✅',
+        'order' => $order
+    ]);
 }
 }
