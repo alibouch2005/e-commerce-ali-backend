@@ -156,6 +156,8 @@ require __DIR__.'/Catalogue.php';
         Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus']);
         Route::get('/admin/sales-by-day', [OrderController::class, 'salesByDay']);
         Route::get('/admin/stats', [OrderController::class, 'stats']);
+        Route::post('/admin/orders/{order}/assign', [OrderController::class, 'assignLivreur']);
+        Route::get('/admin/livreurs', [OrderController::class, 'livreurs']);
     });
     /*|--------------------------------------------------------------------------
     | Delivery Routes
@@ -166,13 +168,15 @@ require __DIR__.'/Catalogue.php';
     Route::middleware('role:admin')->group(function () {
 
         Route::post('/deliveries/assign', [DeliveryController::class, 'assign']);
+        
     });
 
     // Routes pour les livreurs uniquement pour la gestion de leurs livraisons
     Route::middleware('role:livreur')->group(function () {
 
-        Route::get('/deliveries', [DeliveryController::class, 'myDeliveries']);
-        Route::put('/deliveries/{delivery}/status', [DeliveryController::class, 'updateStatus']);
+       
+        Route::get('/livreur/orders', [OrderController::class, 'livreurOrders']);
+        Route::put('/livreur/orders/{order}/deliver', [OrderController::class, 'livreurUpdateStatus']);
     });
     Route::middleware('role:admin')->get('/admin/stats', [OrderController::class, 'stats']);
     Route::middleware('role:admin')->group(function () {
