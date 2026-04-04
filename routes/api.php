@@ -181,6 +181,7 @@ require __DIR__.'/Catalogue.php';
     Route::middleware('role:admin')->get('/admin/stats', [OrderController::class, 'stats']);
     Route::middleware('role:admin')->group(function () {
     Route::get('/admin/stats/sales', [OrderController::class, 'salesByDay']);
+    Route::get('/low-stock', [ProductController::class, 'lowStock']);
     Route::apiResource('admin/categories', CategoryController::class);
 });
 
