@@ -168,6 +168,7 @@ require __DIR__.'/Catalogue.php';
     Route::middleware('role:admin')->group(function () {
 
         Route::post('/deliveries/assign', [DeliveryController::class, 'assign']);
+        Route::get('/admin/orders/export/pdf', [OrderController::class, 'exportPDF']);
         
     });
 
