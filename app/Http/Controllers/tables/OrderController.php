@@ -10,7 +10,7 @@ use App\Models\Order;
 use App\Models\User;
 use App\Models\Product; // Ajouté pour les stats de stock
 use Illuminate\Http\Request;
-
+use Barryvdh\DomPDF\Facade\Pdf;
 class OrderController extends Controller
 {
     public function index(Request $request)
@@ -169,4 +169,16 @@ class OrderController extends Controller
         $order->update(['status' => 'delivered']);
         return response()->json(['message' => 'Commande livrée ✅', 'order' => $order]);
     }
+    public function exportPDF(Request $request)
+{
+    $date = $request->date ?? now()->toDateString();
+
+    $orders = Order::with('user')
+        ->whereDate('created_at', $date)
+        ->get();
+
+    $pdf = Pdf::loadView('pdf.orders', compact('orders', 'date'));
+
+    return $pdf->download("orders-$date.pdf");
+}
 }
