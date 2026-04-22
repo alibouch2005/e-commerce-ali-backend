@@ -21,11 +21,11 @@ class PasswordResetController extends Controller
         $status = Password::sendResetLink(
             $request->only('email')
         );
-
+        // Si l'envoi du lien de réinitialisation est réussi, retourne une réponse de succès avec un message approprié
         if ($status === Password::RESET_LINK_SENT) {
             return response()->json(['message' => __($status)], 200);
         }
-// Si l'envoi du lien de réinitialisation échoue, retourne une réponse d'erreur avec un message approprié
+        // Si l'envoi du lien de réinitialisation échoue, retourne une réponse d'erreur avec un message approprié
         return response()->json(['message' => __($status)], 400);
     }
 
@@ -37,7 +37,7 @@ class PasswordResetController extends Controller
             'email' => 'required|email',
             'password' => 'required|confirmed|min:8',
         ]);
-
+        // Réinitialise le mot de passe de l'utilisateur une fois le token validé.
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
             function ($user, $password) {
@@ -49,7 +49,6 @@ class PasswordResetController extends Controller
 
         if ($status === Password::PASSWORD_RESET) {
             return response()->json(['message' => 'Mot de passe réinitialisé avec succès'], 200);
-         }
-        
+        }
     }
 }
