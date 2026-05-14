@@ -41,7 +41,7 @@ class DatabaseSeeder extends Seeder
             
              // 20 Products
         
-        Product::factory(20)->make()->each(function ($product) use ($categories) {
+        Product::factory(20)->make()->each(function ($product) use ($categories) {// On associe chaque produit à une catégorie aléatoire
             $product->category_id = $categories->random()->id;
             $product->save();
         });

@@ -39,7 +39,7 @@ Cliquez sur le bouton ci-dessous pour créer un nouveau mot de passe en toute s�
 ---
 
 {{-- Footer --}}
-Merci de faire confiance à **{{ config('app.name') }}** ❤️  
+Merci de faire confiance à **{{ config('app.name') }}** 
 Votre boutique en ligne préférée.
 
 ---
