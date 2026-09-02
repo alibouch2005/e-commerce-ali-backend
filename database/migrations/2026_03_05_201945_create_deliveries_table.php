@@ -25,7 +25,7 @@ return new class extends Migration
                 'pending',
                 'preparing',
                 'shipping',
-                'delivered'
+                'delivered',
             ])->default('pending');
             $table->timestamp('date_livraison')->nullable();
             $table->timestamps();

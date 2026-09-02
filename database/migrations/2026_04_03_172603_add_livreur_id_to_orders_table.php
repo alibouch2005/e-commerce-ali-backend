@@ -10,11 +10,11 @@ return new class extends Migration
      * Run the migrations.
      */
     public function up(): void
-{
-    Schema::table('orders', function (Blueprint $table) {
-        $table->foreignId('livreur_id')->nullable()->constrained('users')->nullOnDelete();
-    });
-}
+    {
+        Schema::table('orders', function (Blueprint $table) {
+            $table->foreignId('livreur_id')->nullable()->constrained('users')->nullOnDelete();
+        });
+    }
 
     /**
      * Reverse the migrations.

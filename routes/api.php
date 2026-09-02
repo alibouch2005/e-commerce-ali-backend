@@ -2,192 +2,96 @@
 
 use App\Http\Controllers\auth\LoginController;
 use App\Http\Controllers\auth\LogoutController;
-use App\Http\Controllers\Auth\PasswordResetController;
+use App\Http\Controllers\auth\PasswordResetController;
 use App\Http\Controllers\auth\RegisterController;
 use App\Http\Controllers\auth\UserController;
+use App\Http\Controllers\Catalogue\CartController as CatalogueCartController;
 use App\Http\Controllers\connection\AccountController;
+use App\Http\Controllers\tables\AnalyticsController;
 use App\Http\Controllers\tables\CartController;
-use App\Http\Controllers\tables\ProductController;
 use App\Http\Controllers\tables\CategoryController;
-use App\Http\Controllers\tables\DeliveryController;
+use App\Http\Controllers\tables\CmiPaymentController;
+use App\Http\Controllers\tables\CouponController;
+use App\Http\Controllers\tables\FavoriteController;
+use App\Http\Controllers\tables\NotificationController;
 use App\Http\Controllers\tables\OrderController;
-use App\Models\User;
+use App\Http\Controllers\tables\ProductController;
+use App\Http\Controllers\tables\ReviewController;
+use App\Http\Controllers\tables\SettingController;
+use App\Http\Controllers\tables\SupportMessageController;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Http\Request;
 
-
-/*
-|--------------------------------------------------------------------------
-| Public Routes
-|--------------------------------------------------------------------------
-*/
-
-// Affichage des formulaires d'authentification
-Route::get('/login', [LoginController::class, 'showForm'])->name('login');
-Route::get('/register', [RegisterController::class, 'showForm'])->name('register');
-
-// Traitement des authentifications
-Route::post('/login', [LoginController::class, 'login'])->middleware('guest');
-Route::post('/register', [RegisterController::class, 'register'])->middleware('guest');
-
-// Routes pour la réinitialisation du mot de passe
-Route::post('/forgot-password', [PasswordResetController::class, 'forgot']);
-Route::get('/reset-password/{token}', function ($token, Request $request) {
-
-    $email = $request->query('email');
-
-    return redirect("http://localhost:3000/reset-password?token=$token&email=$email");
-
-})->name('password.reset');
-Route::post('/reset-password', [PasswordResetController::class, 'reset']);
-/*
-|--------------------------------------------------------------------------
-| Public Catalogue Routes
-|--------------------------------------------------------------------------
-*/
-
+Route::post('/login', [LoginController::class, 'login'])->middleware('throttle:10,1');
+Route::post('/register', [RegisterController::class, 'register'])->middleware('throttle:10,1');
+Route::post('/forgot-password', [PasswordResetController::class, 'forgot'])->middleware('throttle:3,1');
+Route::post('/reset-password', [PasswordResetController::class, 'reset'])->middleware('throttle:5,1');
 require __DIR__.'/Catalogue.php';
+Route::post('/analytics/events', [AnalyticsController::class, 'store'])->middleware('throttle:120,1');
+Route::post('/delivery/quote', [OrderController::class, 'deliveryQuote'])->middleware('throttle:60,1');
+Route::post('/support/messages', [SupportMessageController::class, 'store'])->middleware('throttle:10,1');
+Route::match(['get', 'post'], '/payments/cmi/ok', [CmiPaymentController::class, 'ok'])->middleware('throttle:30,1');
+Route::match(['get', 'post'], '/payments/cmi/fail', [CmiPaymentController::class, 'fail'])->middleware('throttle:30,1');
+Route::post('/payments/cmi/callback', [CmiPaymentController::class, 'callback'])->middleware('throttle:60,1');
 
-/*|--------------------------------------------------------------------------
-    | Admin Routes
-    |--------------------------------------------------------------------------*/
-
-    
-    
-    /*
-    |--------------------------------------------------------------------------
-    | Authenticated Routes
-    |--------------------------------------------------------------------------
-    */
-    
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('/notifications', function (Request $request) {
-
-    return [
-        [
-            "message" => "Nouvelle commande assignée 🚚"
-        ]
-    ];
-
-});
-    Route::get('/users', [UserController::class, 'index']);
-    Route::prefix('/user')->controller(AccountController::class)->group(function () {
-        Route::get('', 'show');
-        Route::put('', 'update');
+Route::middleware('auth:sanctum')->group(function () {
+    Route::post('/logout', [LogoutController::class, 'logout']);
+    Route::get('/users', [UserController::class, 'index'])->middleware('role:admin');
+    Route::prefix('user')->controller(AccountController::class)->group(function () {
+        Route::get('/', 'show');
+        Route::put('/', 'update');
         Route::delete('/delete', 'delete');
         Route::patch('/change-password', 'changePassword');
     });
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::patch('/notifications/read-all', [NotificationController::class, 'markAllRead']);
+    Route::patch('/notifications/{notification}/read', [NotificationController::class, 'markRead']);
 
-    /*|--------------------------------------------------------------------------
-    | Logout Route
-    |--------------------------------------------------------------------------*/
-
-    // Route pour la déconnexion, accessible à tous les utilisateurs authentifiés
-    Route::post('/logout', [LogoutController::class, 'logout']);
-
-    /*|--------------------------------------------------------------------------
-    | Category Routes
-    |--------------------------------------------------------------------------*/
-
-    // Routes accessibles à tous les utilisateurs authentifiés
-    Route::prefix('admin/categories')->controller(CategoryController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/{category}', 'show');
-    });
-
-    // Routes admin uniquement
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/admin/categories', [CategoryController::class, 'store']);
-        Route::put('/admin/categories/{category}', [CategoryController::class, 'update']);
-        Route::delete('/admin/categories/{category}', [CategoryController::class, 'destroy']);
-    });
-
-    /*|--------------------------------------------------------------------------
-    | Product Routes
-    |--------------------------------------------------------------------------*/
-
-    // Routes accessibles à tous les utilisateurs authentifiés
-
-    Route::prefix('admin/products')->controller(ProductController::class)->group(function () {
-        Route::get('/', 'index');
-        Route::get('/{product}', 'show');
-    });
-
-    // Routes admin uniquement
-
-    Route::middleware('role:admin')->group(function () {
-        Route::post('/admin/products', [ProductController::class, 'store']);
-        Route::put('/admin/products/{product}', [ProductController::class, 'update']);
-        Route::delete('/admin/products/{product}', [ProductController::class, 'destroy']);
-    });
-    /*|--------------------------------------------------------------------------
-    | Cart Routes
-    |--------------------------------------------------------------------------*/
     Route::middleware('role:client')->group(function () {
-        // Routes pour la gestion du panier, accessibles à tous les utilisateurs authentifiés
-        Route::prefix('/user/cart')->controller(CartController::class)->group(function () {
-            Route::get('', 'index');
+        Route::get('/support/messages', [SupportMessageController::class, 'myMessages']);
+        Route::patch('/support/messages/{supportMessage}/close', [SupportMessageController::class, 'close']);
+        Route::post('/products/{product}/reviews', [ReviewController::class, 'store']);
+        Route::post('/cart/merge', [CatalogueCartController::class, 'merge']);
+        Route::get('/user/favorites', [FavoriteController::class, 'index']);
+        Route::post('/user/favorites/{product}', [FavoriteController::class, 'store']);
+        Route::delete('/user/favorites/{product}', [FavoriteController::class, 'destroy']);
+        Route::prefix('user/cart')->controller(CartController::class)->group(function () {
+            Route::get('/', 'index');
             Route::post('/add', 'add');
             Route::put('/update-quantity/{cartItem}', 'updateQuantity');
             Route::delete('/remove/{cartItem}', 'remove');
             Route::delete('/clear', 'clear');
         });
-    });
-
-
-    //    /*|--------------------------------------------------------------------------
-    //    | Order Routes
-    //    |--------------------------------------------------------------------------*/
-
-    // Routes pour la gestion des commandes, accessibles à tous les utilisateurs authentifiés
-    Route::middleware('role:client')->group(function () {
-
         Route::post('/checkout', [OrderController::class, 'checkout']);
         Route::get('/orders', [OrderController::class, 'index']);
+        Route::get('/orders/{order}/receipt', [OrderController::class, 'receipt']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);
     });
-
-    // Routes admin uniquement pour la gestion des commandes
-    Route::middleware('role:admin')->group(function () {
-
-        Route::get('/admin/orders', [OrderController::class, 'adminIndex']);
-        Route::get('/admin/orders/{order}', [OrderController::class, 'adminShow']);
-        Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
-        // routes/api.php
-        Route::put('/admin/orders/{order}/status', [OrderController::class, 'updateStatus']);
-        Route::get('/admin/sales-by-day', [OrderController::class, 'salesByDay']);
-        Route::get('/admin/stats', [OrderController::class, 'stats']);
-        Route::post('/admin/orders/{order}/assign', [OrderController::class, 'assignLivreur']);
-        Route::get('/admin/livreurs', [OrderController::class, 'livreurs']);
-    });
-    /*|--------------------------------------------------------------------------
-    | Delivery Routes
-    |--------------------------------------------------------------------------*/
-
-    // Routes pour la gestion des livraisons, accessibles à tous les utilisateurs authentifiés
-
-    Route::middleware('role:admin')->group(function () {
-
-        Route::post('/deliveries/assign', [DeliveryController::class, 'assign']);
-        Route::get('/admin/orders/export/pdf', [OrderController::class, 'exportPDF']);
-        
-    });
-
-    // Routes pour les livreurs uniquement pour la gestion de leurs livraisons
     Route::middleware('role:livreur')->group(function () {
-
-       
         Route::get('/livreur/orders', [OrderController::class, 'livreurOrders']);
-        Route::put('/livreur/orders/{order}/deliver', [OrderController::class, 'livreurUpdateStatus']);
+        Route::post('/livreur/orders/{order}/accept', [OrderController::class, 'acceptDelivery']);
+        Route::put('/livreur/orders/{order}/status', [OrderController::class, 'livreurUpdateStatus']);
     });
-    Route::middleware('role:admin')->get('/admin/stats', [OrderController::class, 'stats']);
-    Route::middleware('role:admin')->group(function () {
-    Route::get('/admin/stats/sales', [OrderController::class, 'salesByDay']);
-    Route::get('/low-stock', [ProductController::class, 'lowStock']);
-    Route::apiResource('admin/categories', CategoryController::class);
-});
-
-
-
-
+    Route::middleware('role:admin')->prefix('admin')->group(function () {
+        Route::apiResource('categories', CategoryController::class);
+        Route::apiResource('products', ProductController::class);
+        Route::apiResource('coupons', CouponController::class)->except('show');
+        Route::get('/orders', [OrderController::class, 'adminIndex']);
+        Route::get('/orders/export/pdf', [OrderController::class, 'exportPDF']);
+        Route::get('/orders/{order}/receipt', [OrderController::class, 'receipt']);
+        Route::get('/orders/{order}', [OrderController::class, 'adminShow']);
+        Route::put('/orders/{order}/status', [OrderController::class, 'updateStatus']);
+        Route::post('/orders/{order}/assign', [OrderController::class, 'assignLivreur']);
+        Route::get('/livreurs', [OrderController::class, 'livreurs']);
+        Route::get('/stats', [OrderController::class, 'stats']);
+        Route::get('/sales-by-day', [OrderController::class, 'salesByDay']);
+        Route::get('/low-stock', [ProductController::class, 'lowStock']);
+        Route::get('/analytics', [AnalyticsController::class, 'summary']);
+        Route::get('/settings', [SettingController::class, 'show']);
+        Route::put('/settings/delivery', [SettingController::class, 'updateDelivery']);
+        Route::get('/support/messages', [SupportMessageController::class, 'index']);
+        Route::patch('/support/messages/{supportMessage}', [SupportMessageController::class, 'update']);
+        Route::post('/users', [UserController::class, 'store']);
+        Route::put('/users/{user}/role', [UserController::class, 'updateRole']);
+        Route::delete('/users/{user}', [UserController::class, 'destroy']);
+    });
 });

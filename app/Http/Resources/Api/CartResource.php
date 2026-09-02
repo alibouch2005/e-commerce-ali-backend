@@ -4,7 +4,6 @@ namespace App\Http\Resources\Api;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use App\Http\Resources\Api\CartItemResource;
 
 class CartResource extends JsonResource
 {
@@ -21,6 +20,6 @@ class CartResource extends JsonResource
             'items' => CartItemResource::collection($this->items), // Utilise CartItemResource pour transformer les items du panier
             'total' => $this->items->sum(fn ($item) => $item->quantity * $item->price), // Calcule le total du panier
             'item_count' => $this->items->count(), // Compte le nombre d'items dans le panier
-        ]   ;
+        ];
     }
 }

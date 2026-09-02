@@ -4,9 +4,8 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Password;
 
 class PasswordResetController extends Controller
 {
@@ -14,7 +13,7 @@ class PasswordResetController extends Controller
     public function forgot(Request $request)
     {
         $request->validate([
-            'email' => 'required|email'
+            'email' => 'required|email',
         ]);
 
         // Tente d'envoyer le lien de réinitialisation du mot de passe à l'adresse e-mail fournie
@@ -25,6 +24,7 @@ class PasswordResetController extends Controller
         if ($status === Password::RESET_LINK_SENT) {
             return response()->json(['message' => __($status)], 200);
         }
+
         // Si l'envoi du lien de réinitialisation échoue, retourne une réponse d'erreur avec un message approprié
         return response()->json(['message' => __($status)], 400);
     }

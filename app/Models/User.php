@@ -37,11 +37,17 @@ class User extends Authenticatable
     {
         return $this->hasMany(Order::class);
     }
-    // User 1 ─── n Delivery (un utilisateur peut être livreur pour plusieurs commandes)
+
+    // User 1 ─── n Delivery (un utilisateur peut être livreur pour plusieurs livraisons)
     public function deliveries()
-{
-    return $this->hasMany(Order::class, 'livreur_id');
-}
+    {
+        return $this->hasMany(Delivery::class, 'livreur_id');
+    }
+
+    public function favorites()
+    {
+        return $this->belongsToMany(Product::class, 'favorites')->withTimestamps();
+    }
 
     /**
      * The attributes that should be hidden for serialization.

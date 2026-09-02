@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources\Api;
 
-use App\Http\Resources\Api\ProductResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -17,9 +16,8 @@ class CartItemResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'product' => $this->product->name,
-            'price' => $this->product->price,
-            'image' => $this->product->image,
+            'product' => new ProductResource($this->whenLoaded('product')),
+            'price' => $this->price,
             'quantity' => $this->quantity,
             'total_price' => $this->price * $this->quantity,
         ];

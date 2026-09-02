@@ -17,8 +17,8 @@ class CategoryFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->unique()->word(),// Génère un nom de catégorie unique
-            'description' => $this->faker->sentence(),// Génère une description aléatoire pour la catégorie
+            'name' => $this->faker->unique()->word(), // Génère un nom de catégorie unique
+            'description' => $this->faker->sentence(), // Génère une description aléatoire pour la catégorie
         ];
     }
 }

@@ -2,20 +2,21 @@
 
 namespace App\Http\Controllers\auth;
 
+use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Http\Controllers\Controller;
 
 class RegisterController extends Controller
 {
     public function register(RegisterRequest $request)
     {
-        $dataUser = $request->validated(); // Valide les données de la requête en utilisant les règles définies dans RegisterRequest
-        $user = User::create($dataUser); // Crée un nouvel utilisateur dans la base de données avec les données validées
-        Auth::login($user); // Connecte l'utilisateur après l'inscription
-        return response()->json(['user' => $user], 201); // Retourne une réponse JSON avec les informations de l'utilisateur nouvellement créé et un code de statut 201 (Created)
+        $data = $request->validated();
+        // Public registration can only create customers. Admins assign delivery roles.
+        $data['role'] = 'client';
+        $user = User::create($data);
+        Auth::login($user);
+
+        return response()->json(['user' => $user], 201);
     }
 }
-

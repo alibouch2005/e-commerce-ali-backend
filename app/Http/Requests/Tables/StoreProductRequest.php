@@ -6,32 +6,46 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class StoreProductRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-          if ($this->user() && $this->user()->role === 'admin') {
-            return true; // L'utilisateur est autorisé à faire cette requête s'il est authentifié et a le rôle d'administrateur
-        }
-        return false; // L'utilisateur n'est pas autorisé à faire cette requête
+        return $this->user()?->role === 'admin';
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'sale_price' => $this->filled('sale_price') ? $this->input('sale_price') : null,
+            'sale_ends_at' => $this->filled('sale_ends_at') ? $this->input('sale_ends_at') : null,
+            'free_delivery' => $this->boolean('free_delivery'),
+        ]);
+    }
+
     public function rules(): array
     {
-        // Définit les règles de validation pour les champs du formulaire de création de produit.
         return [
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
-            'price' => 'required|numeric|min:0',
+            'price' => 'required|numeric|min:0.01',
+            'sale_price' => 'nullable|numeric|min:0|lt:price',
+            'sale_ends_at' => 'nullable|date|after:now',
             'stock' => 'required|integer|min:0',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:2048', // Vous pouvez ajuster cette règle en fonction de la manière dont vous gérez les images (par exemple, si vous utilisez des fichiers téléchargés, vous pourriez utiliser 'image' au lieu de 'string')
-            'category_id' => 'required|exists:categories,id',// Vérifie que la catégorie existe dans la table categories
+            'free_delivery' => 'boolean',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'images' => 'nullable|array|max:5',
+            'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'category_id' => 'required|exists:categories,id',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'sale_price.lt' => 'Le prix promo doit etre inferieur au prix normal.',
+            'sale_ends_at.after' => 'La date de fin de promotion doit etre dans le futur.',
+            'category_id.required' => 'Choisissez une categorie.',
+            'category_id.exists' => 'La categorie choisie est invalide.',
+            'image.max' => 'L image principale ne doit pas depasser 5 Mo.',
+            'images.*.max' => 'Chaque image supplementaire ne doit pas depasser 5 Mo.',
         ];
     }
 }

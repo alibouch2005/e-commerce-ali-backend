@@ -6,30 +6,28 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CheckoutRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
-        if ($this->user()) {
-            return true; // L'utilisateur est autorisé à faire cette requête s'il est authentifié
-        }
-        return false; // L'utilisateur n'est pas autorisé à faire cette requête s'il n'est pas authentifié
+        return $this->user() !== null;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
-     */
+    protected function prepareForValidation(): void
+    {
+        $this->merge([
+            'fulfillment_method' => $this->input('fulfillment_method', 'delivery'),
+        ]);
+    }
+
     public function rules(): array
     {
         return [
-            // Validation des informations de livraison
-            'adresse_livraison' => 'required|string|max:255',
+            'fulfillment_method' => 'required|in:delivery,pickup',
+            'adresse_livraison' => 'required_if:fulfillment_method,delivery|nullable|string|max:255',
+            'delivery_latitude' => 'nullable|numeric|between:-90,90',
+            'delivery_longitude' => 'nullable|numeric|between:-180,180',
             'phone' => 'required|string|max:20',
-            'payment_method' => 'required|in:cash,card,on_delivery'
-
+            'payment_method' => 'required|in:cash_on_delivery,card',
+            'coupon_code' => 'nullable|string|max:50',
         ];
     }
 }

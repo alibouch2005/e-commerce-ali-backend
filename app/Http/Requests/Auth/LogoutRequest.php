@@ -12,12 +12,12 @@ class LogoutRequest extends FormRequest
      */
     public function authorize(): bool
     {
-       
+
         if (Auth::guard('web')->check()) {
             return true; // Autorise la déconnexion si l'utilisateur est authentifié
         }
+
         return false; // Refuse la déconnexion si l'utilisateur n'est pas authentifié
-       
 
     }
 
@@ -30,7 +30,7 @@ class LogoutRequest extends FormRequest
     {
         return [
             //
-        
+
         ];
     }
 }

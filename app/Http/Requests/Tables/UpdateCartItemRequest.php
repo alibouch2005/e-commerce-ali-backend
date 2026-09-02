@@ -14,6 +14,7 @@ class UpdateCartItemRequest extends FormRequest
         if ($this->user()) {
             return true; // L'utilisateur est autorisé à faire cette requête s'il est authentifié
         }
+
         return false; // L'utilisateur n'est pas autorisé à faire cette requête s'il n'est pas authentifié
     }
 

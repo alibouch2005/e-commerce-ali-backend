@@ -11,9 +11,10 @@ class ChangePasswordRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        if($this->user()){
+        if ($this->user()) {
             return true; // Autorise le changement de mot de passe si l'utilisateur est authentifié
         }
+
         return false; // Refuse le changement de mot de passe si l'utilisateur n'est pas  authentifié
     }
 

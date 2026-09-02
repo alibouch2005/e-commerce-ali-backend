@@ -1,8 +1,9 @@
 <?php
 
+use App\Http\Controllers\Catalogue\CartController;
 use App\Http\Controllers\Catalogue\CategorieController;
 use App\Http\Controllers\Catalogue\ProductController;
-use App\Http\Controllers\Catalogue\CartController;
+use App\Http\Controllers\tables\ReviewController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -23,7 +24,7 @@ Route::prefix('categories')->controller(CategorieController::class)->group(funct
 
 // Routes publiques pour les produits
 Route::prefix('products')->controller(ProductController::class)->group(function () {
-   
+
     Route::get('/', 'index'); // Liste des produits (avec filtre par catégorie optionnel)
     Route::get('/{product}', 'show'); // Détails d'un produit
 });
@@ -36,3 +37,4 @@ Route::prefix('cart')->controller(CartController::class)->group(function () {
     Route::delete('/remove/{cartItem}', 'remove'); // Supprimer item (auth required)
     Route::delete('/clear', 'clear'); // Vider le panier (auth required)
 });
+Route::get('products/{product}/reviews', [ReviewController::class, 'index']);

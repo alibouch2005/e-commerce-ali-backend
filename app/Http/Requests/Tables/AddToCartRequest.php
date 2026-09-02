@@ -11,7 +11,7 @@ class AddToCartRequest extends FormRequest
      */
     public function authorize(): bool
     {
-       
+
         return true; // L'authentification est gérée par le middleware, donc on autorise ici tous les utilisateurs à faire cette requête
     }
 

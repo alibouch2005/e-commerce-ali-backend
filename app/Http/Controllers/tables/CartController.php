@@ -3,14 +3,14 @@
 namespace App\Http\Controllers\tables;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Http\Requests\Tables\AddToCartRequest;
 use App\Http\Requests\Tables\UpdateCartItemRequest;
 use App\Http\Resources\Api\CartResource;
 use App\Models\Cart;
-use App\Models\Product;
 use App\Models\CartItem;
+use App\Models\Product;
 use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class CartController extends Controller
@@ -31,7 +31,7 @@ class CartController extends Controller
     public function index(Request $request)
     {
         $cart = $this->getOrCreateCart($request->user());
-        $cart->load('items.product');// evite N+1 queries en chargeant les produits liés aux items du panier
+        $cart->load('items.product'); // evite N+1 queries en chargeant les produits liés aux items du panier
 
         // Retourne la ressource Cart complète avec items et totaux calculés
         return new CartResource($cart);
@@ -64,7 +64,7 @@ class CartController extends Controller
             $cart->items()->create([
                 'product_id' => $product->id,
                 'quantity' => $request->quantity,
-                'price' => $product->price,
+                'price' => $product->current_price,
             ]);
         }
 

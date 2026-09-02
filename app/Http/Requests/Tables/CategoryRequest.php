@@ -15,6 +15,7 @@ class CategoryRequest extends FormRequest
         if ($this->user() && $this->user()->role === 'admin') {
             return true; // L'utilisateur est autorisé à faire cette requête s'il est authentifié et a le rôle d'administrateur
         }
+
         return false; // L'utilisateur n'est pas autorisé à faire cette requête
     }
 
@@ -29,9 +30,9 @@ class CategoryRequest extends FormRequest
             'name' => [
                 'required',
                 'string',
-                Rule::unique('categories', 'name')->ignore($this->category)
+                Rule::unique('categories', 'name')->ignore($this->category),
             ],
-            'description' => 'nullable|string'
+            'description' => 'nullable|string',
         ];
     }
 }

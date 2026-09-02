@@ -6,8 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tables\AddToCartRequest;
 use App\Http\Resources\Api\CartResource;
 use App\Models\Cart;
-use App\Models\Product;
 use App\Models\CartItem;
+use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
@@ -22,8 +22,10 @@ class CartController extends Controller
         if ($request->user()) {
 
             $cart = Cart::firstOrCreate([
-                'user_id' => $request->user()->id
+                'user_id' => $request->user()->id,
             ]);
+
+            $this->mergeGuestCartIntoUserCart($request, $cart);
 
             return [$cart, null];
         }
@@ -31,12 +33,12 @@ class CartController extends Controller
         // guest
         $guestToken = $request->cookie('guest_token');
 
-        if (!$guestToken) {
+        if (! $guestToken) {
             $guestToken = Str::uuid()->toString();
         }
 
         $cart = Cart::firstOrCreate([
-            'guest_token' => $guestToken
+            'guest_token' => $guestToken,
         ]);
 
         return [$cart, $guestToken];
@@ -60,6 +62,20 @@ class CartController extends Controller
         return $response;
     }
 
+    public function merge(Request $request)
+    {
+        abort_unless($request->user(), 401);
+
+        $cart = Cart::firstOrCreate([
+            'user_id' => $request->user()->id,
+        ]);
+
+        $this->mergeGuestCartIntoUserCart($request, $cart);
+        $cart->load('items.product');
+
+        return (new CartResource($cart))->response()->setStatusCode(200)->cookie('guest_token', '', -1);
+    }
+
     /**
      * Add product to cart
      */
@@ -78,14 +94,14 @@ class CartController extends Controller
 
         if ($newQty > $product->stock) {
             return response()->json([
-                'message' => 'Stock insuffisant'
+                'message' => 'Stock insuffisant',
             ], 422);
         }
 
         if ($item) {
 
             $item->update([
-                'quantity' => $newQty
+                'quantity' => $newQty,
             ]);
 
         } else {
@@ -94,7 +110,7 @@ class CartController extends Controller
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
                 'quantity' => $request->quantity,
-                'price' => $product->price
+                'price' => $product->current_price,
             ]);
 
         }
@@ -115,20 +131,22 @@ class CartController extends Controller
      */
     public function updateQuantity(Request $request, CartItem $cartItem)
     {
+        $this->authorizeCartItem($request, $cartItem);
+
         $request->validate([
-            'quantity' => 'required|integer|min:1'
+            'quantity' => 'required|integer|min:1',
         ]);
 
         $product = $cartItem->product;
 
         if ($request->quantity > $product->stock) {
             return response()->json([
-                'message' => 'Stock insuffisant'
+                'message' => 'Stock insuffisant',
             ], 422);
         }
 
         $cartItem->update([
-            'quantity' => $request->quantity
+            'quantity' => $request->quantity,
         ]);
 
         return response()->json($cartItem->fresh('product'));
@@ -137,12 +155,13 @@ class CartController extends Controller
     /**
      * Remove product
      */
-    public function remove(CartItem $cartItem)
+    public function remove(Request $request, CartItem $cartItem)
     {
+        $this->authorizeCartItem($request, $cartItem);
         $cartItem->delete();
 
         return response()->json([
-            'message' => 'Produit supprimé'
+            'message' => 'Produit supprimé',
         ]);
     }
 
@@ -156,7 +175,64 @@ class CartController extends Controller
         $cart->items()->delete();
 
         return response()->json([
-            'message' => 'Panier vidé'
+            'message' => 'Panier vidé',
         ]);
+    }
+
+    private function authorizeCartItem(Request $request, CartItem $cartItem): void
+    {
+        $cart = $cartItem->cart;
+
+        if ($request->user()) {
+            abort_unless($cart->user_id === $request->user()->id, 403);
+
+            return;
+        }
+
+        abort_unless($cart->guest_token && hash_equals($cart->guest_token, (string) $request->cookie('guest_token')), 403);
+    }
+
+    private function mergeGuestCartIntoUserCart(Request $request, Cart $userCart): void
+    {
+        $guestToken = (string) $request->cookie('guest_token');
+
+        if ($guestToken === '') {
+            return;
+        }
+
+        $guestCart = Cart::where('guest_token', $guestToken)->with('items.product')->first();
+
+        if (! $guestCart || $guestCart->id === $userCart->id) {
+            return;
+        }
+
+        foreach ($guestCart->items as $guestItem) {
+            $product = $guestItem->product;
+
+            if (! $product || $product->stock <= 0) {
+                continue;
+            }
+
+            $targetItem = $userCart->items()->where('product_id', $guestItem->product_id)->first();
+            $nextQuantity = min($product->stock, ($targetItem?->quantity ?? 0) + $guestItem->quantity);
+
+            if ($targetItem) {
+                $targetItem->update([
+                    'quantity' => $nextQuantity,
+                    'price' => $product->current_price,
+                ]);
+
+                continue;
+            }
+
+            $userCart->items()->create([
+                'product_id' => $guestItem->product_id,
+                'quantity' => min($product->stock, $guestItem->quantity),
+                'price' => $product->current_price,
+            ]);
+        }
+
+        $guestCart->items()->delete();
+        $guestCart->delete();
     }
 }

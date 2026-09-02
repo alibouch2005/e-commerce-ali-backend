@@ -35,4 +35,18 @@ return [
         ],
     ],
 
+    'cmi' => [
+        'client_id' => env('CMI_CLIENT_ID'),
+        'store_key' => env('CMI_STORE_KEY'),
+        'gateway_url' => env('CMI_GATEWAY_URL', 'https://testpayment.cmi.co.ma/fim/est3Dgate'),
+        'ok_url' => env('CMI_OK_URL', env('APP_URL').'/api/payments/cmi/ok'),
+        'fail_url' => env('CMI_FAIL_URL', env('APP_URL').'/api/payments/cmi/fail'),
+        'callback_url' => env('CMI_CALLBACK_URL', env('APP_URL').'/api/payments/cmi/callback'),
+        'currency' => env('CMI_CURRENCY', '504'),
+        'store_type' => env('CMI_STORE_TYPE', '3D_PAY_HOSTING'),
+        'transaction_type' => env('CMI_TRANSACTION_TYPE', 'Auth'),
+        'language' => env('CMI_LANGUAGE', 'fr'),
+        'test_mode' => env('CMI_TEST_MODE', true),
+    ],
+
 ];

@@ -8,12 +8,15 @@ use Illuminate\Database\Eloquent\Model;
 class Delivery extends Model
 {
     use HasFactory;
-    
+
     protected $fillable = [
         'order_id',
         'livreur_id',
         'status',
         'date_livraison',
+        'recipient_name',
+        'delivery_note',
+        'proof_image',
     ];
 
     // Delivery n ─── 1 Order (plusieurs livraisons peuvent être associées à une même commande)

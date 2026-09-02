@@ -14,7 +14,7 @@ class AccountController extends Controller
     public function show(Request $request)
     {
         return response()->json([
-            'user' => $request->user()
+            'user' => $request->user(),
         ]);
     }
 
@@ -26,7 +26,7 @@ class AccountController extends Controller
 
         return response()->json([
             'message' => 'Account updated successfully',
-            'user' => $user
+            'user' => $user,
         ]);
     }
 
@@ -42,31 +42,29 @@ class AccountController extends Controller
         $user->delete();
 
         return response()->json([
-            'message' => 'Account deleted successfully'
+            'message' => 'Account deleted successfully',
         ]);
     }
 
     // Changer mot de passe
     public function changePassword(ChangePasswordRequest $request)
-{
-    $user = $request->user();
+    {
+        $user = $request->user();
 
-    // Vérifier l'ancien mot de passe
-    if (!Hash::check($request->current_password, $user->password)) {
+        // Vérifier l'ancien mot de passe
+        if (! Hash::check($request->current_password, $user->password)) {
+            return response()->json([
+                'message' => 'Current password incorrect',
+            ], 422);
+        }
+
+        // Mettre à jour le nouveau mot de passe
+        $user->update([
+            'password' => Hash::make($request->new_password),
+        ]);
+
         return response()->json([
-            'message' => 'Current password incorrect'
-        ], 422);
+            'message' => 'Password changed successfully',
+        ]);
     }
-
-    // Mettre à jour le nouveau mot de passe
-    $user->update([
-        'password' => Hash::make($request->new_password)
-    ]);
-
-    
-
-    return response()->json([
-        'message' => 'Password changed successfully'
-    ]);
-}
 }

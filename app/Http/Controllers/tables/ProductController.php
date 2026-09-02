@@ -14,74 +14,91 @@ class ProductController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Product::query();
+        $query = Product::query()->with(['category', 'images']);
 
-        if ($request->category_id) {
+        if ($request->filled('category_id')) {
             $query->where('category_id', $request->category_id);
         }
 
-        if ($request->search) {
-            $query->where('name', 'like', '%' . $request->search . '%');
+        if ($request->filled('search')) {
+            $query->where('name', 'like', '%'.$request->search.'%');
         }
 
-        $products = $query->with('category')->paginate(10);
-        return ProductResource::collection($products);
+        return ProductResource::collection($query->latest()->paginate(10));
     }
 
-    // 🔥 NOUVEAU : Récupérer uniquement les alertes de stock faible
     public function lowStock()
     {
-        $products = Product::where('stock', '<', 5)
-            ->select('id', 'name', 'stock')
-            ->get();
-            
-        return response()->json($products);
+        return response()->json(Product::where('stock', '<', 5)->with('category')->orderBy('stock')->get()->map(fn ($product) => [
+            'id' => $product->id,
+            'name' => $product->name,
+            'stock' => $product->stock,
+            'category' => $product->category?->name,
+            'is_out_of_stock' => $product->stock === 0,
+        ]));
     }
 
     public function show(Product $product)
     {
-        return new ProductResource($product->load('category'));
+        return new ProductResource($product->load(['category', 'images']));
     }
 
     public function store(StoreProductRequest $request)
     {
-        $data = $request->validated();
-
-        if ($request->hasFile('image')) {
-            $data['image'] = '/storage/' . $request->file('image')->store('products', 'public');
-        }
-
+        $data = $request->safe()->except(['image', 'images']);
         $product = Product::create($data);
-        return new ProductResource($product->load('category'));
+        $this->storeImages($request, $product);
+
+        return (new ProductResource($product->fresh()->load(['category', 'images'])))->response()->setStatusCode(201);
     }
 
     public function update(UpdateProductRequest $request, Product $product)
     {
-        $data = $request->validated();
+        $product->update($request->safe()->except(['image', 'images']));
+        $this->storeImages($request, $product);
 
-        if ($request->hasFile('image')) {
-            if ($product->image) {
-                $oldPath = str_replace('/storage/', '', $product->image);
-                if (Storage::disk('public')->exists($oldPath)) {
-                    Storage::disk('public')->delete($oldPath);
-                }
-            }
-            $path = $request->file('image')->store('products', 'public');
-            $data['image'] = '/storage/' . $path;
-        }
-
-        $product->update($data);
-        return new ProductResource($product->load('category'));
+        return new ProductResource($product->fresh()->load(['category', 'images']));
     }
 
     public function destroy(Product $product)
     {
+        $product->load('images');
+
+        foreach ($product->images as $image) {
+            Storage::disk('public')->delete(ltrim(str_replace('/storage/', '', $image->path), '/'));
+        }
+
         if ($product->image) {
-            $path = str_replace('/storage/', '', $product->image);
-            Storage::disk('public')->delete($path);
+            Storage::disk('public')->delete(ltrim(str_replace('/storage/', '', $product->image), '/'));
         }
 
         $product->delete();
-        return response()->json(['message' => 'Produit supprimé avec succès']);
+
+        return response()->json(['message' => 'Produit supprime']);
+    }
+
+    private function storeImages(Request $request, Product $product): void
+    {
+        if ($request->hasFile('image')) {
+            if ($product->image) {
+                Storage::disk('public')->delete(ltrim(str_replace('/storage/', '', $product->image), '/'));
+            }
+
+            $path = '/storage/'.$request->file('image')->store('products', 'public');
+            $product->update(['image' => $path]);
+            $product->images()->firstOrCreate(['path' => $path], ['position' => 0]);
+        }
+
+        foreach ($request->file('images', []) as $file) {
+            $path = '/storage/'.$file->store('products', 'public');
+            $product->images()->create([
+                'path' => $path,
+                'position' => $product->images()->count(),
+            ]);
+
+            if (! $product->image) {
+                $product->update(['image' => $path]);
+            }
+        }
     }
 }

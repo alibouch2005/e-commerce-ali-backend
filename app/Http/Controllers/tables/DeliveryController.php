@@ -3,11 +3,11 @@
 namespace App\Http\Controllers\tables;
 
 use App\Http\Controllers\Controller;
-use App\Models\Delivery;
-use Illuminate\Http\Request;
 use App\Http\Requests\Tables\AssignDeliveryRequest;
 use App\Http\Requests\Tables\UpdateDeliveryStatusRequest;
 use App\Http\Resources\Api\DeliveryResource;
+use App\Models\Delivery;
+use Illuminate\Http\Request;
 
 class DeliveryController extends Controller
 {
@@ -17,7 +17,7 @@ class DeliveryController extends Controller
         $delivery = Delivery::create([
             'order_id' => $request->order_id,
             'livreur_id' => $request->livreur_id,
-            'status' => 'preparing'
+            'status' => 'preparing',
         ]);
 
         return new DeliveryResource(
@@ -41,11 +41,11 @@ class DeliveryController extends Controller
     {
         // 🔥 update delivery
         $delivery->update([
-            'status' => $request->status
+            'status' => $request->status,
         ]);
 
         // 🔥 mapping status vers Order
-        $orderStatus = match($request->status) {
+        $orderStatus = match ($request->status) {
             'preparing' => 'Preparation',
             'in_delivery' => 'Expedie',
             'delivered' => 'Livre',
@@ -55,14 +55,14 @@ class DeliveryController extends Controller
         // 🔥 update order si mapping existe
         if ($orderStatus) {
             $delivery->order->update([
-                'status' => $orderStatus
+                'status' => $orderStatus,
             ]);
         }
 
         // 🔥 si livré → date livraison
         if ($request->status === 'delivered') {
             $delivery->update([
-                'date_livraison' => now()
+                'date_livraison' => now(),
             ]);
         }
 
