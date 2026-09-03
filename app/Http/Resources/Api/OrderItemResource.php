@@ -17,10 +17,10 @@ class OrderItemResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
-            'product' => $this->product->name,
+            'product_name' => $this->relationLoaded('product') ? $this->product?->name : null,
             'quantity' => $this->quantity,
             'price' => $this->price,
-            'total_price' => $this->quantity * $this->price,
+            'total_price' => round((float) $this->quantity * (float) $this->price, 2),
             'product' => new ProductResource($this->whenLoaded('product')),
         ];
     }

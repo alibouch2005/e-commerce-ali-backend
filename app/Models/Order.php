@@ -18,6 +18,7 @@ class Order extends Model
         'adresse_livraison',
         'delivery_latitude',
         'delivery_longitude',
+        'delivery_time_slot',
         'phone',
         'payment_method',
         'payment_status',
@@ -28,11 +29,16 @@ class Order extends Model
         'coupon_code',
         'discount_amount',
         'status',
+        'cancelled_by',
+        'cancelled_at',
+        'cancellation_reason',
+        'refund_reason',
     ];
 
     protected $casts = [
         'payment_payload' => 'array',
         'paid_at' => 'datetime',
+        'cancelled_at' => 'datetime',
         'delivery_fee' => 'decimal:2',
         'delivery_distance_km' => 'decimal:2',
     ];

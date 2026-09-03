@@ -21,7 +21,7 @@
 </head>
 <body>
     <div class="header">
-        <div class="brand">E-commerce Ali Bouchouar</div>
+        <div class="brand">E-commerce Ali </div>
         <div class="muted">Recu de commande #{{ $order->id }}</div>
     </div>
 
@@ -43,10 +43,29 @@
         </tr>
     </table>
 
+    @php
+        $slotLabel = [
+            '08_12' => '08:00 - 12:00',
+            '12_18' => '12:00 - 18:00',
+            '18_21' => '18:00 - 21:00',
+        ][$order->delivery_time_slot] ?? null;
+    @endphp
+
     @if($order->fulfillment_method === 'delivery')
         <p><strong>Adresse de livraison:</strong> {{ $order->adresse_livraison }}</p>
+        @if($slotLabel)
+            <p><strong>Disponibilite client:</strong> {{ $slotLabel }}</p>
+        @endif
     @else
         <p><strong>Retrait:</strong> Commande a recuperer localement par le client.</p>
+    @endif
+
+    @if($order->status === 'cancelled' && $order->cancellation_reason)
+        <p><strong>Commande annulee:</strong> {{ $order->cancellation_reason }}</p>
+    @endif
+
+    @if($order->status === 'refunded' && $order->refund_reason)
+        <p><strong>Commande remboursee:</strong> {{ $order->refund_reason }}</p>
     @endif
 
     <table class="items">
@@ -72,16 +91,17 @@
 
     @php
         $itemsTotal = $order->items->sum(fn ($item) => $item->price * $item->quantity);
+        $safeTotal = max(0, $itemsTotal - ($order->discount_amount ?? 0)) + ($order->delivery_fee ?? 0);
     @endphp
 
     <div class="total-box">
-        <div class="total-row"><span>Sous-total</span><span>{{ number_format($itemsTotal, 2) }} DH</span></div>
-        <div class="total-row"><span>Remise</span><span>{{ number_format($order->discount_amount ?? 0, 2) }} DH</span></div>
-        <div class="total-row"><span>Frais de livraison</span><span>{{ number_format($order->delivery_fee ?? 0, 2) }} DH</span></div>
+        <div class="total-row"><span>Sous-total : </span><span>{{ number_format($itemsTotal, 2) }} DH</span></div>
+        <div class="total-row"><span>Remise : </span><span>{{ number_format($order->discount_amount ?? 0, 2) }} DH</span></div>
+        <div class="total-row"><span>Frais de livraison : </span><span>{{ number_format($order->delivery_fee ?? 0, 2) }} DH</span></div>
         @if($order->delivery_distance_km)
-            <div class="total-row"><span>Distance livraison</span><span>{{ number_format($order->delivery_distance_km, 2) }} km</span></div>
+            <div class="total-row"><span>Distance livraison : </span><span>{{ number_format($order->delivery_distance_km, 2) }} km</span></div>
         @endif
-        <div class="total-row grand-total"><span>Total paye</span><span>{{ number_format($order->total_price, 2) }} DH</span></div>
+        <div class="total-row grand-total"><span>Total paye : </span><span>{{ number_format($safeTotal, 2) }} DH</span></div>
     </div>
 
     <div class="footer">

@@ -25,6 +25,7 @@ class CheckoutRequest extends FormRequest
             'adresse_livraison' => 'required_if:fulfillment_method,delivery|nullable|string|max:255',
             'delivery_latitude' => 'nullable|numeric|between:-90,90',
             'delivery_longitude' => 'nullable|numeric|between:-180,180',
+            'delivery_time_slot' => 'nullable|in:08_12,12_18,18_21',
             'phone' => 'required|string|max:20',
             'payment_method' => 'required|in:cash_on_delivery,card',
             'coupon_code' => 'nullable|string|max:50',

@@ -29,12 +29,13 @@ class ProductController extends Controller
 
     public function lowStock()
     {
-        return response()->json(Product::where('stock', '<', 5)->with('category')->orderBy('stock')->get()->map(fn ($product) => [
+        return response()->json(Product::where('stock', '<', 10)->with('category')->orderBy('stock')->get()->map(fn ($product) => [
             'id' => $product->id,
             'name' => $product->name,
             'stock' => $product->stock,
             'category' => $product->category?->name,
             'is_out_of_stock' => $product->stock === 0,
+            'soon_available' => $product->stock === 0,
         ]));
     }
 

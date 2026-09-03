@@ -92,11 +92,8 @@ class CartController extends Controller
         $currentQty = $item ? $item->quantity : 0;
         $newQty = $currentQty + $request->quantity;
 
-        if ($newQty > $product->stock) {
-            return response()->json([
-                'message' => 'Stock insuffisant',
-            ], 422);
-        }
+        $requestedQty = $newQty;
+        $newQty = min($newQty, $product->stock);
 
         if ($item) {
 
@@ -109,7 +106,7 @@ class CartController extends Controller
             CartItem::create([
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
-                'quantity' => $request->quantity,
+                'quantity' => min($request->quantity, $product->stock),
                 'price' => $product->current_price,
             ]);
 
@@ -123,7 +120,9 @@ class CartController extends Controller
             $response->cookie('guest_token', $guestToken, 60 * 24 * 30);
         }
 
-        return $response;
+        return $requestedQty > $product->stock
+            ? $response->setData(array_merge($response->getData(true), ['message' => "Quantite ajustee au stock disponible ({$product->stock})"]))
+            : $response;
     }
 
     /**
@@ -139,14 +138,14 @@ class CartController extends Controller
 
         $product = $cartItem->product;
 
-        if ($request->quantity > $product->stock) {
+        if ($product->stock <= 0) {
             return response()->json([
-                'message' => 'Stock insuffisant',
+                'message' => 'Produit bientot disponible',
             ], 422);
         }
 
         $cartItem->update([
-            'quantity' => $request->quantity,
+            'quantity' => min($request->quantity, $product->stock),
         ]);
 
         return response()->json($cartItem->fresh('product'));

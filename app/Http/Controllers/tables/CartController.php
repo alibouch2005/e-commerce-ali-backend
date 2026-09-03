@@ -49,13 +49,14 @@ class CartController extends Controller
 
         // check stock availability
         $currentQuantity = $item ? $item->quantity : 0;
-        $newTotalQty = $currentQuantity + $request->quantity;
-        if ($newTotalQty > $product->stock) {
+        if ($product->stock <= 0) {
             return response()->json([
-                'message' => 'Stock insuffisant',
-                'available' => $product->stock - $currentQuantity,
+                'message' => 'Produit bientot disponible',
+                'available' => 0,
             ], 422);
         }
+        $requestedTotalQty = $currentQuantity + $request->quantity;
+        $newTotalQty = min($product->stock, $requestedTotalQty);
 
         if ($item) {
             $item->quantity = $newTotalQty;
@@ -69,7 +70,7 @@ class CartController extends Controller
         }
 
         return response()->json([
-            'message' => 'Produit ajouté au panier',
+            'message' => $newTotalQty < $requestedTotalQty ? "Quantite ajustee au stock disponible ({$product->stock})" : 'Produit ajoute au panier',
         ], 201);
     }
 
@@ -81,16 +82,17 @@ class CartController extends Controller
         $this->authorizeCartItem($cartItem);
 
         $product = $cartItem->product()->lockForUpdate()->first();
-        if ($request->quantity > $product->stock) {
+        if ($product->stock <= 0) {
             return response()->json([
-                'message' => 'Stock insuffisant',
-                'available' => $product->stock,
+                'message' => 'Produit bientot disponible',
+                'available' => 0,
             ], 422);
         }
 
-        $cartItem->update(['quantity' => $request->quantity]);
+        $quantity = min($request->quantity, $product->stock);
+        $cartItem->update(['quantity' => $quantity]);
 
-        return response()->json(['message' => 'Quantité mise à jour']);
+        return response()->json(['message' => $quantity < $request->quantity ? "Quantite ajustee au stock disponible ({$product->stock})" : 'Quantite mise a jour']);
     }
 
     /**

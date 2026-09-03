@@ -65,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/orders', [OrderController::class, 'index']);
         Route::get('/orders/{order}/receipt', [OrderController::class, 'receipt']);
         Route::get('/orders/{order}', [OrderController::class, 'show']);
+        Route::patch('/orders/{order}/cancel', [OrderController::class, 'cancel']);
     });
     Route::middleware('role:livreur')->group(function () {
         Route::get('/livreur/orders', [OrderController::class, 'livreurOrders']);

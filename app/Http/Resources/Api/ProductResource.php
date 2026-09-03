@@ -19,6 +19,8 @@ class ProductResource extends JsonResource
             'sale_ends_at' => $this->sale_ends_at,
             'is_on_sale' => $this->is_on_sale,
             'stock' => $this->stock,
+            'low_stock' => $this->stock > 0 && $this->stock < 10,
+            'soon_available' => $this->stock <= 0,
             'free_delivery' => (bool) $this->free_delivery,
             'image' => $this->imageUrl($this->image),
             'images' => $this->whenLoaded('images', fn () => $this->images->map(fn ($image) => [

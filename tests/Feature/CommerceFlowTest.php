@@ -6,6 +6,7 @@ use App\Models\AppSetting;
 use App\Models\Cart;
 use App\Models\Category;
 use App\Models\Coupon;
+use App\Models\Order;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -78,7 +79,7 @@ class CommerceFlowTest extends TestCase
         Coupon::create(['code' => 'WELCOME10', 'type' => 'percent', 'value' => 10, 'usage_limit' => 1, 'is_active' => true]);
 
         $this->actingAs($client)->postJson('/api/checkout', [
-            'adresse_livraison' => 'Rabat', 'phone' => '0612345678', 'payment_method' => 'cash_on_delivery', 'coupon_code' => 'WELCOME10',
+            'adresse_livraison' => 'Casablanca', 'phone' => '0612345678', 'payment_method' => 'cash_on_delivery', 'coupon_code' => 'WELCOME10',
         ])->assertCreated()->assertJsonPath('data.total_price', 120);
 
         $this->assertDatabaseHas('orders', ['coupon_code' => 'WELCOME10', 'discount_amount' => 10, 'delivery_fee' => 30]);
@@ -221,6 +222,52 @@ class CommerceFlowTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.delivery_fee', '0.00')
             ->assertJsonPath('data.total_price', 120);
+    }
+
+    public function test_admin_stats_include_monthly_and_yearly_revenue(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $client = User::factory()->client()->create();
+
+        $currentMonthOrder = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 130,
+            'delivery_fee' => 30,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'payment_status' => 'cash_pending',
+            'fulfillment_method' => 'delivery',
+            'status' => 'delivered',
+        ]);
+        $currentMonthOrder->forceFill([
+            'created_at' => now()->startOfMonth()->addDay(),
+            'updated_at' => now()->startOfMonth()->addDay(),
+        ])->save();
+
+        $previousYearOrder = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 220,
+            'delivery_fee' => 20,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'payment_status' => 'cash_pending',
+            'fulfillment_method' => 'delivery',
+            'status' => 'delivered',
+        ]);
+        $previousYearOrder->forceFill([
+            'created_at' => now()->subYear()->startOfYear()->addMonth(),
+            'updated_at' => now()->subYear()->startOfYear()->addMonth(),
+        ])->save();
+
+        $this->actingAs($admin)->getJson('/api/admin/stats')
+            ->assertOk()
+            ->assertJsonPath('revenue_trends.monthly.0.total', 130)
+            ->assertJsonPath('revenue_trends.monthly.0.products_revenue', 100)
+            ->assertJsonPath('revenue_trends.monthly.0.delivery_fees', 30)
+            ->assertJsonPath('revenue_trends.yearly.0.total', 220)
+            ->assertJsonPath('revenue_trends.yearly.1.total', 130);
     }
 
     public function test_product_free_delivery_applies_to_checkout(): void
@@ -411,6 +458,209 @@ class CommerceFlowTest extends TestCase
             'order_id' => $orderId,
             'livreur_id' => $firstLivreur->id,
             'status' => 'shipping',
+        ]);
+    }
+
+    public function test_order_resource_returns_safe_computed_total_from_items(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        $order = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 31,
+            'delivery_fee' => 31,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'payment_status' => 'cash_pending',
+            'fulfillment_method' => 'delivery',
+            'status' => 'pending',
+        ]);
+
+        $order->items()->create([
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'price' => 100,
+        ]);
+
+        $this->actingAs($client)->getJson("/api/orders/{$order->id}")
+            ->assertOk()
+            ->assertJsonPath('data.total_price', 31)
+            ->assertJsonPath('data.items_subtotal', 200)
+            ->assertJsonPath('data.computed_total', 231)
+            ->assertJsonPath('data.items.0.total_price', 200);
+    }
+
+    public function test_delivery_is_limited_to_casablanca(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create(['price' => 80, 'stock' => 5]);
+        $cart = Cart::create(['user_id' => $client->id]);
+        $cart->items()->create(['product_id' => $product->id, 'quantity' => 1, 'price' => 80]);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Rabat Agdal',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Pour le moment, la livraison est disponible seulement a Casablanca.');
+    }
+
+    public function test_card_payment_is_required_from_5000_dh(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create(['price' => 5000, 'stock' => 2]);
+        $cart = Cart::create(['user_id' => $client->id]);
+        $cart->items()->create(['product_id' => $product->id, 'quantity' => 1, 'price' => 5000]);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca Maarif',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+        ])->assertStatus(422)
+            ->assertJsonPath('message', 'Paiement par carte obligatoire pour les commandes de 5000 DH ou plus.');
+    }
+
+    public function test_every_fifth_delivered_order_gets_free_delivery(): void
+    {
+        $client = User::factory()->client()->create();
+
+        foreach (range(1, 4) as $index) {
+            Order::create([
+                'user_id' => $client->id,
+                'total_price' => 130 + $index,
+                'delivery_fee' => 30,
+                'adresse_livraison' => 'Casablanca',
+                'phone' => '0612345678',
+                'payment_method' => 'cash_on_delivery',
+                'payment_status' => 'cash_pending',
+                'fulfillment_method' => 'delivery',
+                'status' => 'delivered',
+            ]);
+        }
+
+        $product = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        $cart = Cart::create(['user_id' => $client->id]);
+        $cart->items()->create(['product_id' => $product->id, 'quantity' => 1, 'price' => 100]);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca Maarif',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+        ])->assertCreated()
+            ->assertJsonPath('data.delivery_fee', '0.00')
+            ->assertJsonPath('data.total_price', 100);
+    }
+
+    public function test_coupon_can_be_used_once_per_client_and_can_target_product(): void
+    {
+        $client = User::factory()->client()->create();
+        $targetProduct = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        $otherProduct = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        Coupon::create(['code' => 'SPECIAL20', 'type' => 'percent', 'value' => 20, 'product_id' => $targetProduct->id, 'is_active' => true]);
+
+        $cart = Cart::create(['user_id' => $client->id]);
+        $cart->items()->create(['product_id' => $targetProduct->id, 'quantity' => 1, 'price' => 100]);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+            'coupon_code' => 'SPECIAL20',
+        ])->assertCreated()
+            ->assertJsonPath('data.discount_amount', 20);
+
+        $secondCart = Cart::create(['user_id' => $client->id]);
+        $secondCart->items()->create(['product_id' => $otherProduct->id, 'quantity' => 1, 'price' => 100]);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+            'coupon_code' => 'SPECIAL20',
+        ])->assertStatus(422);
+    }
+
+    public function test_client_can_cancel_pending_order_and_stock_is_restored(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        $order = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 130,
+            'delivery_fee' => 30,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'payment_status' => 'cash_pending',
+            'fulfillment_method' => 'delivery',
+            'status' => 'pending',
+        ]);
+        $order->items()->create(['product_id' => $product->id, 'quantity' => 2, 'price' => 100]);
+        $product->update(['stock' => 3]);
+
+        $this->actingAs($client)->patchJson("/api/orders/{$order->id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled')
+            ->assertJsonPath('data.cancelled_by', 'client');
+
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'stock' => 5]);
+    }
+
+    public function test_client_cannot_cancel_after_15_minutes(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create(['price' => 100, 'stock' => 5]);
+        $order = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 130,
+            'delivery_fee' => 30,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'payment_status' => 'cash_pending',
+            'fulfillment_method' => 'delivery',
+            'status' => 'pending',
+        ]);
+        $order->forceFill(['created_at' => now()->subMinutes(16), 'updated_at' => now()->subMinutes(16)])->save();
+        $order->items()->create(['product_id' => $product->id, 'quantity' => 1, 'price' => 100]);
+
+        $this->actingAs($client)->patchJson("/api/orders/{$order->id}/cancel")
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'Le delai d annulation client est depasse. Contactez le support.');
+    }
+
+    public function test_admin_refund_saves_reason_and_notifies_client(): void
+    {
+        $admin = User::factory()->admin()->create();
+        $client = User::factory()->client()->create();
+        $order = Order::create([
+            'user_id' => $client->id,
+            'total_price' => 130,
+            'delivery_fee' => 30,
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'card',
+            'payment_status' => 'paid',
+            'fulfillment_method' => 'delivery',
+            'status' => 'delivered',
+        ]);
+
+        $this->actingAs($admin)->putJson("/api/admin/orders/{$order->id}/status", [
+            'status' => 'refunded',
+            'reason' => 'Produit retourne au magasin.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'refunded')
+            ->assertJsonPath('data.refund_reason', 'Produit retourne au magasin.');
+
+        $this->assertDatabaseHas('notifications', [
+            'user_id' => $client->id,
+            'title' => 'Remboursement confirme',
         ]);
     }
 }

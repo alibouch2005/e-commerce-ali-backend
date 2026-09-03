@@ -8,17 +8,17 @@ class DeliveryPricingService
 
     private const STORE_LONGITUDE = -7.67712;
 
-    private const BASE_FEE = 10.0;
+    private const BASE_FEE = 5.0;
 
     private const PRICE_PER_KM = 4.0;
 
-    private const MIN_DELIVERY_FEE = 15.0;
+    private const MIN_DELIVERY_FEE = 5.0;
 
     private const FALLBACK_DELIVERY_FEE = 30.0;
 
     public function __construct(private readonly StoreSettingsService $settings) {}
 
-    public function quote(string $fulfillmentMethod, ?float $latitude = null, ?float $longitude = null, float $cartSubtotal = 0, bool $productFreeDelivery = false): array
+    public function quote(string $fulfillmentMethod, ?float $latitude = null, ?float $longitude = null, float $cartSubtotal = 0, bool $productFreeDelivery = false, bool $loyaltyFreeDelivery = false): array
     {
         $deliverySettings = $this->settings->delivery();
         $freeDeliveryEnabled = (bool) ($deliverySettings['free_delivery_enabled'] ?? false);
@@ -32,7 +32,7 @@ class DeliveryPricingService
             ];
         }
 
-        if ($productFreeDelivery || ($freeDeliveryEnabled && $cartSubtotal >= $freeDeliveryMinimum)) {
+        if ($productFreeDelivery || $loyaltyFreeDelivery || ($freeDeliveryEnabled && $cartSubtotal >= $freeDeliveryMinimum)) {
             return [
                 'delivery_fee' => 0.0,
                 'delivery_distance_km' => $latitude !== null && $longitude !== null
@@ -40,7 +40,7 @@ class DeliveryPricingService
                     : null,
                 'is_estimated' => false,
                 'free_delivery' => true,
-                'free_delivery_reason' => $productFreeDelivery ? 'product' : 'global',
+                'free_delivery_reason' => $loyaltyFreeDelivery ? 'loyalty_5th_order' : ($productFreeDelivery ? 'product' : 'global'),
             ];
         }
 

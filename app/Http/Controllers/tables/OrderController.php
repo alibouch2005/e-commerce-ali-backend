@@ -7,6 +7,7 @@ use App\Http\Requests\Tables\CheckoutRequest;
 use App\Http\Resources\Api\OrderResource;
 use App\Models\Cart;
 use App\Models\Coupon;
+use App\Models\CouponUsage;
 use App\Models\Delivery;
 use App\Models\Order;
 use App\Models\Product;
@@ -21,7 +22,17 @@ use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
-    private const STATUSES = ['pending', 'preparing', 'shipping', 'delivered', 'cancelled'];
+    private const STATUSES = ['pending', 'preparing', 'shipping', 'delivered', 'cancelled', 'refunded'];
+
+    private const CARD_REQUIRED_FROM = 5000;
+
+    private const CASABLANCA_LAT_MIN = 33.45;
+
+    private const CASABLANCA_LAT_MAX = 33.66;
+
+    private const CASABLANCA_LNG_MIN = -7.82;
+
+    private const CASABLANCA_LNG_MAX = -7.45;
 
     public function index(Request $request)
     {
@@ -44,12 +55,17 @@ class OrderController extends Controller
             'product_free_delivery' => 'nullable|boolean',
         ]);
 
+        $loyaltyFreeDelivery = $request->user()
+            ? $this->isNextDeliveryFreeForClient($request->user()->id)
+            : false;
+
         return response()->json($pricing->quote(
             $data['fulfillment_method'],
             isset($data['delivery_latitude']) ? (float) $data['delivery_latitude'] : null,
             isset($data['delivery_longitude']) ? (float) $data['delivery_longitude'] : null,
             (float) ($data['cart_subtotal'] ?? 0),
             (bool) ($data['product_free_delivery'] ?? false),
+            $loyaltyFreeDelivery,
         ));
     }
 
@@ -61,7 +77,13 @@ class OrderController extends Controller
             ], 503);
         }
 
-        $order = DB::transaction(function () use ($request, $pricing) {
+        if ($request->fulfillment_method === 'delivery' && ! $this->isCasablancaDelivery($request)) {
+            return response()->json([
+                'message' => 'Pour le moment, la livraison est disponible seulement a Casablanca.',
+            ], 422);
+        }
+
+        $result = DB::transaction(function () use ($request, $pricing) {
             $user = $request->user();
             $cart = Cart::where('user_id', $user->id)->with('items')->lockForUpdate()->first();
 
@@ -77,6 +99,7 @@ class OrderController extends Controller
                 'adresse_livraison' => $request->adresse_livraison,
                 'delivery_latitude' => $request->delivery_latitude,
                 'delivery_longitude' => $request->delivery_longitude,
+                'delivery_time_slot' => $request->delivery_time_slot,
                 'phone' => $request->phone,
                 'payment_method' => $request->payment_method,
                 'payment_status' => $request->payment_method === 'card' ? 'pending' : 'cash_pending',
@@ -85,24 +108,36 @@ class OrderController extends Controller
             ]);
 
             $total = 0;
+            $adjustments = [];
             foreach ($cart->items as $item) {
                 $product = Product::lockForUpdate()->findOrFail($item->product_id);
-                if ($product->stock < $item->quantity) {
-                    abort(response()->json(['message' => "Stock insuffisant pour : {$product->name}"], 422));
+
+                if ($product->stock <= 0) {
+                    $adjustments[] = "{$product->name}: rupture de stock, retire de la commande.";
+
+                    continue;
                 }
 
-                $product->decrement('stock', $item->quantity);
-                $total += $item->quantity * $item->price;
+                $orderedQuantity = min((int) $item->quantity, (int) $product->stock);
+                if ($orderedQuantity < $item->quantity) {
+                    $adjustments[] = "{$product->name}: quantite ajustee de {$item->quantity} a {$orderedQuantity}.";
+                }
+
+                $product->decrement('stock', $orderedQuantity);
+                $total += $orderedQuantity * $item->price;
                 $order->items()->create([
                     'product_id' => $product->id,
-                    'quantity' => $item->quantity,
+                    'quantity' => $orderedQuantity,
                     'price' => $item->price,
                 ]);
             }
 
-            $productFreeDelivery = $cart->items->every(function ($item) {
-                return (bool) Product::whereKey($item->product_id)->value('free_delivery');
-            });
+            if ($total <= 0 || $order->items()->doesntExist()) {
+                abort(response()->json(['message' => 'Tous les produits du panier sont en rupture de stock.'], 422));
+            }
+
+            $productFreeDelivery = $order->items()->with('product')->get()->every(fn ($item) => (bool) $item->product?->free_delivery);
+            $loyaltyFreeDelivery = $this->isNextDeliveryFreeForClient($user->id);
 
             $deliveryQuote = $pricing->quote(
                 $request->fulfillment_method,
@@ -110,35 +145,64 @@ class OrderController extends Controller
                 $request->delivery_longitude !== null ? (float) $request->delivery_longitude : null,
                 $total,
                 $productFreeDelivery,
+                $loyaltyFreeDelivery,
             );
 
             $discount = 0;
+            $coupon = null;
             $couponCode = $request->filled('coupon_code') ? strtoupper(trim($request->coupon_code)) : null;
             if ($couponCode) {
                 $coupon = Coupon::where('code', $couponCode)->lockForUpdate()->first();
-                if (! $coupon || ! $coupon->isUsable()) {
-                    abort(response()->json(['message' => 'Code promotionnel invalide ou expiré.'], 422));
+                if (! $coupon || ! $coupon->isUsableByUser($user->id)) {
+                    abort(response()->json(['message' => 'Code promotionnel invalide, deja utilise ou expire.'], 422));
                 }
-                $discount = $coupon->discountFor((float) $total);
+
+                $discountBase = $total;
+                if ($coupon->product_id) {
+                    $discountBase = (float) $order->items()
+                        ->where('product_id', $coupon->product_id)
+                        ->get()
+                        ->sum(fn ($item) => (float) $item->price * (int) $item->quantity);
+
+                    if ($discountBase <= 0) {
+                        abort(response()->json(['message' => 'Ce code promo est valable seulement sur un produit specifique qui n est pas dans votre panier.'], 422));
+                    }
+                }
+
+                $discount = $coupon->discountFor((float) $discountBase);
                 if ($discount <= 0) {
-                    abort(response()->json(['message' => 'Le minimum de commande pour ce code promo n’est pas atteint.'], 422));
+                    abort(response()->json(['message' => 'Le minimum de commande pour ce code promo n est pas atteint.'], 422));
                 }
-                $coupon->increment('used_count');
+            }
+
+            $grandTotal = max(0, $total - $discount) + $deliveryQuote['delivery_fee'];
+            if ($grandTotal >= self::CARD_REQUIRED_FROM && $request->payment_method !== 'card') {
+                abort(response()->json(['message' => 'Paiement par carte obligatoire pour les commandes de 5000 DH ou plus.'], 422));
             }
 
             $order->update([
-                'total_price' => max(0, $total - $discount) + $deliveryQuote['delivery_fee'],
+                'total_price' => $grandTotal,
                 'delivery_fee' => $deliveryQuote['delivery_fee'],
                 'delivery_distance_km' => $deliveryQuote['delivery_distance_km'],
                 'coupon_code' => $couponCode,
                 'discount_amount' => $discount,
             ]);
+
+            if ($coupon) {
+                $coupon->increment('used_count');
+                CouponUsage::create([
+                    'coupon_id' => $coupon->id,
+                    'user_id' => $user->id,
+                    'order_id' => $order->id,
+                ]);
+            }
+
             $cart->items()->delete();
             StoreNotification::create([
                 'user_id' => $user->id,
                 'type' => 'order',
-                'title' => 'Commande confirmée',
-                'message' => "Votre commande #{$order->id} a été reçue.",
+                'title' => 'Commande confirmee',
+                'message' => "Votre commande #{$order->id} a ete recue.",
                 'data' => ['order_id' => $order->id],
             ]);
 
@@ -146,18 +210,20 @@ class OrderController extends Controller
                 $this->notifyAvailableLivreurs($order);
             }
 
-            return $order;
+            return ['order' => $order, 'adjustments' => $adjustments];
         });
 
+        $order = $result['order'];
         $order->load(['items.product', 'livreur', 'delivery', 'user']);
 
         if ($order->payment_method === 'card') {
             return (new OrderResource($order))->additional([
                 'payment' => $cmi->paymentForm($order),
+                'warnings' => $result['adjustments'],
             ]);
         }
 
-        return new OrderResource($order);
+        return (new OrderResource($order))->additional(['warnings' => $result['adjustments']]);
     }
 
     public function show(Request $request, Order $order)
@@ -174,19 +240,69 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, Order $order)
     {
-        $data = $request->validate(['status' => 'required|in:pending,preparing,shipping,delivered,cancelled']);
+        $data = $request->validate([
+            'status' => 'required|in:pending,preparing,shipping,delivered,cancelled,refunded',
+            'reason' => 'nullable|string|max:255',
+        ]);
         DB::transaction(function () use ($order, $data) {
             if ($data['status'] === 'cancelled' && $order->status !== 'cancelled') {
                 $order->load('items');
                 foreach ($order->items as $item) {
                     Product::whereKey($item->product_id)->lockForUpdate()->increment('stock', $item->quantity);
                 }
+                $data['cancelled_by'] = 'admin';
+                $data['cancelled_at'] = now();
+                $data['cancellation_reason'] = $data['reason'] ?? 'Commande annulee par l administration.';
             }
+
+            if ($data['status'] === 'refunded') {
+                $data['refund_reason'] = $data['reason'] ?? 'Commande remboursee par l administration.';
+            }
+            unset($data['reason']);
             $order->update($data);
         });
-        $this->notifyCustomer($order, 'Mise à jour de commande', "La commande #{$order->id} est maintenant : {$data['status']}.");
+        $freshOrder = $order->fresh();
+        if ($freshOrder->status === 'refunded') {
+            $this->notifyCustomer($freshOrder, 'Remboursement confirme', "Votre commande #{$freshOrder->id} a ete marquee comme remboursee. {$freshOrder->refund_reason}");
+        } else {
+            $this->notifyCustomer($freshOrder, 'Mise a jour de commande', "La commande #{$freshOrder->id} est maintenant : {$freshOrder->status}.");
+        }
 
-        return new OrderResource($order->fresh()->load(['items.product', 'user', 'livreur']));
+        return new OrderResource($freshOrder->load(['items.product', 'user', 'livreur']));
+    }
+
+    public function cancel(Request $request, Order $order)
+    {
+        abort_unless($order->user_id === $request->user()->id, 403);
+        $data = $request->validate([
+            'reason' => 'nullable|string|max:255',
+        ]);
+
+        if ($order->status !== 'pending') {
+            return response()->json(['message' => 'Vous pouvez annuler seulement avant la preparation.'], 422);
+        }
+
+        if ($order->created_at->lt(now()->subMinutes(15))) {
+            return response()->json(['message' => 'Le delai d annulation client est depasse. Contactez le support.'], 422);
+        }
+
+        DB::transaction(function () use ($order, $data) {
+            $order->load('items');
+            foreach ($order->items as $item) {
+                Product::whereKey($item->product_id)->lockForUpdate()->increment('stock', $item->quantity);
+            }
+
+            $order->update([
+                'status' => 'cancelled',
+                'cancelled_by' => 'client',
+                'cancelled_at' => now(),
+                'cancellation_reason' => $data['reason'] ?? 'Annulee par le client avant preparation.',
+            ]);
+        });
+
+        $this->notifyCustomer($order, 'Commande annulee', "Votre commande #{$order->id} a ete annulee.");
+
+        return new OrderResource($order->fresh()->load(['items.product', 'livreur', 'delivery']));
     }
 
     public function assignLivreur(Request $request, Order $order)
@@ -340,16 +456,24 @@ class OrderController extends Controller
                 'delivery_fees' => Order::where('status', 'delivered')->sum('delivery_fee'),
                 'pending_revenue' => Order::whereIn('status', ['pending', 'preparing', 'shipping'])->sum('total_price'),
             ],
+            'revenue_trends' => $this->revenueTrends(),
             'delivered_orders' => Order::where('status', 'delivered')->count(),
             'product_requests_count' => SupportMessage::where('type', 'product_request')->count(),
             'open_product_requests' => SupportMessage::where('type', 'product_request')->whereIn('status', ['open', 'in_progress'])->count(),
             'requested_products' => $requestedProducts,
             'market_suggestions' => $this->marketSuggestions(),
-            'low_stock_products' => Product::where('stock', '<', 5)->select('id', 'name', 'stock')->get(),
-            'stock_summary' => ['out_of_stock' => Product::where('stock', 0)->count(), 'critical' => Product::whereBetween('stock', [1, 4])->count()],
+            'low_stock_products' => Product::where('stock', '<', 10)->select('id', 'name', 'stock')->get(),
+            'stock_summary' => ['out_of_stock' => Product::where('stock', 0)->count(), 'critical' => Product::whereBetween('stock', [1, 9])->count()],
             'customer_conversion' => ['registered_clients' => $clientCount, 'buyers' => $buyersCount, 'non_buyers' => $clientCount - $buyersCount, 'rate' => $clientCount ? round(($buyersCount / $clientCount) * 100, 1) : 0],
             'top_customers' => User::where('role', 'client')->withCount('orders')->withSum(['orders as total_spent' => fn ($query) => $query->where('status', 'delivered')], 'total_price')->orderByDesc('total_spent')->take(10)->get(['id', 'name', 'email']),
             'status' => collect(self::STATUSES)->mapWithKeys(fn ($status) => [$status => Order::where('status', $status)->count()]),
+            'admin_attention' => [
+                'pending_orders' => Order::where('status', 'pending')->count(),
+                'urgent_support' => SupportMessage::where('priority', 'urgent')->whereIn('status', ['open', 'in_progress'])->count(),
+                'out_of_stock' => Product::where('stock', 0)->count(),
+                'low_stock' => Product::whereBetween('stock', [1, 9])->count(),
+                'refunds' => Order::where('status', 'refunded')->count(),
+            ],
         ]);
     }
 
@@ -357,6 +481,38 @@ class OrderController extends Controller
     {
         return response()->json(Order::where('status', 'delivered')->selectRaw('DATE(created_at) as date, SUM(total_price) as total')
             ->groupBy('date')->orderBy('date')->get());
+    }
+
+    private function revenueTrends(): array
+    {
+        $orders = Order::where('status', 'delivered')
+            ->orderBy('created_at')
+            ->get(['id', 'total_price', 'delivery_fee', 'created_at']);
+
+        $formatGroup = function ($orders, string $periodFormat, string $labelFormat) {
+            return $orders
+                ->groupBy(fn ($order) => $order->created_at->format($periodFormat))
+                ->map(function ($periodOrders, $period) use ($labelFormat) {
+                    $total = (float) $periodOrders->sum('total_price');
+                    $deliveryFees = (float) $periodOrders->sum('delivery_fee');
+
+                    return [
+                        'period' => $period,
+                        'label' => $periodOrders->first()->created_at->format($labelFormat),
+                        'total' => round($total, 2),
+                        'products_revenue' => round($total - $deliveryFees, 2),
+                        'delivery_fees' => round($deliveryFees, 2),
+                        'orders_count' => $periodOrders->count(),
+                    ];
+                })
+                ->values()
+                ->all();
+        };
+
+        return [
+            'monthly' => $formatGroup($orders->filter(fn ($order) => $order->created_at->gte(now()->subMonths(11)->startOfMonth())), 'Y-m', 'M Y'),
+            'yearly' => $formatGroup($orders, 'Y', 'Y'),
+        ];
     }
 
     public function exportPDF(Request $request)
@@ -389,99 +545,147 @@ class OrderController extends Controller
 
         $marketBaseline = collect([
             [
-                'name' => 'Accessoires smartphones',
+                'name' => 'Ecouteurs Bluetooth TWS',
+                'category' => 'Electronique',
+                'priority' => 'Haute',
+                'score' => 94,
+                'reason' => 'Produit compact, achat frequent, facile a livrer et tres fort potentiel chez etudiants, sport et transport.',
+                'source' => 'Tendances high-tech Maroc',
+                'test_price' => '99 - 249 DH',
+                'margin_level' => 'Elevee',
+            ],
+            [
+                'name' => 'Power bank 20000 mAh',
                 'category' => 'Electronique',
                 'priority' => 'Haute',
                 'score' => 91,
-                'reason' => 'Smartphones dominent l achat mobile; coques, chargeurs rapides, supports voiture et power banks sont faciles a vendre et livrer.',
-                'source' => 'Marche Maroc 2026: electronique + mobile commerce',
+                'reason' => 'Tres utile au quotidien, bon panier moyen, se vend bien avec telephones et accessoires USB-C.',
+                'source' => 'Tendances accessoires smartphones Maroc',
+                'test_price' => '149 - 299 DH',
+                'margin_level' => 'Moyenne a elevee',
             ],
             [
-                'name' => 'Ecouteurs Bluetooth et casques',
-                'category' => 'Electronique',
+                'name' => 'Chargeur rapide USB-C 45W/65W',
+                'category' => 'Accessoires telephone',
                 'priority' => 'Haute',
-                'score' => 88,
-                'reason' => 'Produit compact, prix accessible, demande forte chez etudiants, jeunes actifs, gaming et sport.',
-                'source' => 'Tendance accessoires high-tech Maroc',
+                'score' => 89,
+                'reason' => 'Achat de remplacement tres courant, petit format, livraison rapide et compatible avec beaucoup de smartphones.',
+                'source' => 'Tendances mobile commerce Maroc',
+                'test_price' => '79 - 169 DH',
+                'margin_level' => 'Elevee',
             ],
             [
-                'name' => 'Petits electromenagers cuisine',
-                'category' => 'Maison & cuisine',
+                'name' => 'Support telephone voiture magnetique',
+                'category' => 'Auto & telephone',
                 'priority' => 'Haute',
                 'score' => 86,
-                'reason' => 'Air fryer, mixeur, bouilloire, balance cuisine: utiles, visuels, bons pour videos courtes et paniers moyens.',
-                'source' => 'Tendances maison/electronique Maroc',
+                'reason' => 'Produit impulsif, prix accessible, demande forte chez conducteurs et livreurs.',
+                'source' => 'Tendances accessoires auto Maroc',
+                'test_price' => '49 - 129 DH',
+                'margin_level' => 'Elevee',
             ],
             [
-                'name' => 'Parfums et coffrets beaute',
-                'category' => 'Beaute',
+                'name' => 'Ring light avec trepied telephone',
+                'category' => 'Createurs & beaute',
                 'priority' => 'Haute',
                 'score' => 85,
-                'reason' => 'Categorie legere avec bonne marge; coffrets, parfums et soins marchent bien en social commerce.',
-                'source' => 'Tendances beaute Maroc 2026',
+                'reason' => 'Produit tres visuel pour TikTok, live commerce, maquillage, coiffure et petits vendeurs Instagram.',
+                'source' => 'Tendances social commerce Maroc',
+                'test_price' => '129 - 299 DH',
+                'margin_level' => 'Moyenne a elevee',
             ],
             [
-                'name' => 'Soins peau et cheveux',
-                'category' => 'Beaute & bien-etre',
+                'name' => 'Air fryer compacte 3-4L',
+                'category' => 'Maison & cuisine',
                 'priority' => 'Haute',
-                'score' => 83,
-                'reason' => 'Les produits avant/apres se vendent bien: serum, creme, huile capillaire, protection solaire.',
-                'source' => 'Tendances beaute/social commerce Maroc',
+                'score' => 84,
+                'reason' => 'Produit cuisine tres demande, bon prix moyen et facile a vendre avec demonstrations video.',
+                'source' => 'Tendances petit electromenager Maroc',
+                'test_price' => '399 - 899 DH',
+                'margin_level' => 'Moyenne',
             ],
             [
-                'name' => 'Articles rangement maison',
-                'category' => 'Maison',
+                'name' => 'Brosse lissante cheveux',
+                'category' => 'Beaute',
                 'priority' => 'Moyenne',
-                'score' => 79,
-                'reason' => 'Organisateurs cuisine, boites rangement, etageres compactes: utile, visuel, facile a expliquer.',
-                'source' => 'Tendances home goods',
+                'score' => 82,
+                'reason' => 'Avant/apres simple a montrer, bon achat cadeau et forte traction beaute femme.',
+                'source' => 'Tendances beaute Maroc',
+                'test_price' => '149 - 349 DH',
+                'margin_level' => 'Elevee',
             ],
             [
-                'name' => 'Gaming accessoires',
+                'name' => 'Mini camera WiFi de securite',
                 'category' => 'Electronique',
                 'priority' => 'Moyenne',
-                'score' => 77,
-                'reason' => 'Souris, tapis, clavier, manette, support telephone: bons produits d entree pour catalogue electronique.',
-                'source' => 'Tendances loisirs/electronique',
+                'score' => 80,
+                'reason' => 'Demande maison, bureau et petit commerce; produit premium avec besoin clair.',
+                'source' => 'Tendances securite maison Maroc',
+                'test_price' => '199 - 499 DH',
+                'margin_level' => 'Moyenne',
             ],
             [
-                'name' => 'Produits bebe pratiques',
-                'category' => 'Bebe & enfants',
+                'name' => 'Mixeur portable rechargeable',
+                'category' => 'Maison & cuisine',
+                'priority' => 'Moyenne',
+                'score' => 78,
+                'reason' => 'Produit demo facile: jus, smoothie, sport, bureau; petit et livrable rapidement.',
+                'source' => 'Tendances cuisine pratique Maroc',
+                'test_price' => '99 - 219 DH',
+                'margin_level' => 'Elevee',
+            ],
+            [
+                'name' => 'Montre connectee sport',
+                'category' => 'Electronique',
+                'priority' => 'Moyenne',
+                'score' => 76,
+                'reason' => 'Bon produit promo, demande jeune et sport, panier moyen plus interessant que petits accessoires.',
+                'source' => 'Tendances wearables Maroc',
+                'test_price' => '199 - 599 DH',
+                'margin_level' => 'Moyenne',
+            ],
+            [
+                'name' => 'Manette Bluetooth smartphone',
+                'category' => 'Gaming',
                 'priority' => 'Moyenne',
                 'score' => 74,
-                'reason' => 'Accessoires utiles, jouets educatifs, veilleuses et rangement bebe peuvent convertir avec preuve visuelle.',
-                'source' => 'Tendances categories Maroc',
+                'reason' => 'Bon produit pour jeunes et gamers mobile; fonctionne bien en bundle avec support telephone.',
+                'source' => 'Tendances gaming mobile Maroc',
+                'test_price' => '129 - 299 DH',
+                'margin_level' => 'Moyenne',
             ],
             [
-                'name' => 'Epicerie premium et snacks',
-                'category' => 'Alimentaire',
+                'name' => 'Organisateur rangement cuisine',
+                'category' => 'Maison',
                 'priority' => 'Moyenne',
                 'score' => 72,
-                'reason' => 'Livraison urbaine en croissance; bon complement si stock rapide et local Casablanca.',
-                'source' => 'Croissance grocery/food delivery Maroc',
+                'reason' => 'Produit utile et visuel, facile a vendre avec photos avant/apres et panier multi-quantite.',
+                'source' => 'Tendances maison Maroc',
+                'test_price' => '39 - 149 DH',
+                'margin_level' => 'Elevee',
             ],
         ]);
 
         $seasonBoosts = [
             'rentree' => [
-                'Accessoires smartphones' => 6,
-                'Ecouteurs Bluetooth et casques' => 5,
-                'Gaming accessoires' => 4,
+                'Ecouteurs Bluetooth TWS' => 6,
+                'Power bank 20000 mAh' => 5,
+                'Manette Bluetooth smartphone' => 4,
             ],
             'black_friday' => [
-                'Accessoires smartphones' => 5,
-                'Ecouteurs Bluetooth et casques' => 5,
-                'Petits electromenagers cuisine' => 5,
+                'Ecouteurs Bluetooth TWS' => 5,
+                'Power bank 20000 mAh' => 5,
+                'Air fryer compacte 3-4L' => 5,
             ],
             'ramadan_eid' => [
-                'Parfums et coffrets beaute' => 7,
-                'Petits electromenagers cuisine' => 5,
-                'Articles rangement maison' => 4,
+                'Brosse lissante cheveux' => 6,
+                'Air fryer compacte 3-4L' => 5,
+                'Organisateur rangement cuisine' => 4,
             ],
             'summer' => [
-                'Soins peau et cheveux' => 5,
-                'Accessoires smartphones' => 3,
-                'Epicerie premium et snacks' => 3,
+                'Mixeur portable rechargeable' => 5,
+                'Power bank 20000 mAh' => 3,
+                'Ring light avec trepied telephone' => 3,
             ],
             'normal' => [],
         ];
@@ -499,6 +703,33 @@ class OrderController extends Controller
             ->take(10)
             ->values()
             ->all();
+    }
+
+    private function isNextDeliveryFreeForClient(int $userId): bool
+    {
+        $deliveredCount = Order::where('user_id', $userId)
+            ->where('fulfillment_method', 'delivery')
+            ->where('status', 'delivered')
+            ->count();
+
+        return $deliveredCount > 0 && ($deliveredCount + 1) % 5 === 0;
+    }
+
+    private function isCasablancaDelivery(Request $request): bool
+    {
+        if ($request->filled('delivery_latitude') && $request->filled('delivery_longitude')) {
+            $latitude = (float) $request->delivery_latitude;
+            $longitude = (float) $request->delivery_longitude;
+
+            return $latitude >= self::CASABLANCA_LAT_MIN
+                && $latitude <= self::CASABLANCA_LAT_MAX
+                && $longitude >= self::CASABLANCA_LNG_MIN
+                && $longitude <= self::CASABLANCA_LNG_MAX;
+        }
+
+        $address = mb_strtolower((string) $request->adresse_livraison);
+
+        return str_contains($address, 'casablanca') || str_contains($address, 'casa');
     }
 
     private function notifyCustomer(Order $order, string $title, string $message): void

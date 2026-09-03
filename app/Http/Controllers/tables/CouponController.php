@@ -10,7 +10,7 @@ class CouponController extends Controller
 {
     public function index()
     {
-        return response()->json(Coupon::latest()->paginate(30));
+        return response()->json(Coupon::with('product:id,name')->latest()->paginate(30));
     }
 
     public function store(Request $request)
@@ -34,6 +34,6 @@ class CouponController extends Controller
 
     private function rules(Request $request): array
     {
-        return $request->validate(['code' => 'required|string|max:50|unique:coupons,code,'.($request->route('coupon')?->id ?? 'NULL'), 'type' => 'required|in:percent,fixed', 'value' => 'required|numeric|gt:0', 'minimum_amount' => 'nullable|numeric|min:0', 'usage_limit' => 'nullable|integer|min:1', 'starts_at' => 'nullable|date', 'expires_at' => 'nullable|date|after:starts_at', 'is_active' => 'boolean']);
+        return $request->validate(['code' => 'required|string|max:50|unique:coupons,code,'.($request->route('coupon')?->id ?? 'NULL'), 'type' => 'required|in:percent,fixed', 'value' => 'required|numeric|gt:0', 'minimum_amount' => 'nullable|numeric|min:0', 'product_id' => 'nullable|exists:products,id', 'usage_limit' => 'nullable|integer|min:1', 'starts_at' => 'nullable|date', 'expires_at' => 'nullable|date|after:starts_at', 'is_active' => 'boolean']);
     }
 }
