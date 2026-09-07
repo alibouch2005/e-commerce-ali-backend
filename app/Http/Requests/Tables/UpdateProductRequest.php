@@ -13,6 +13,18 @@ class UpdateProductRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $variantOptions = $this->input('variant_options');
+        if (is_string($variantOptions)) {
+            $decoded = json_decode($variantOptions, true);
+            $variantOptions = is_array($decoded) ? $decoded : [];
+        }
+
+        $variantPrices = $this->input('variant_prices');
+        if (is_string($variantPrices)) {
+            $decoded = json_decode($variantPrices, true);
+            $variantPrices = is_array($decoded) ? $decoded : [];
+        }
+
         $data = [
             'sale_price' => $this->filled('sale_price') ? $this->input('sale_price') : null,
             'sale_ends_at' => $this->filled('sale_ends_at') ? $this->input('sale_ends_at') : null,
@@ -20,6 +32,22 @@ class UpdateProductRequest extends FormRequest
 
         if ($this->has('free_delivery')) {
             $data['free_delivery'] = $this->boolean('free_delivery');
+        }
+
+        if ($this->has('has_variants')) {
+            $data['has_variants'] = $this->boolean('has_variants');
+        }
+
+        if ($this->has('variant_options')) {
+            $data['variant_options'] = $variantOptions;
+        }
+
+        if ($this->has('variant_prices')) {
+            $data['variant_prices'] = $variantPrices;
+        }
+
+        if ($this->has('remove_video')) {
+            $data['remove_video'] = $this->boolean('remove_video');
         }
 
         $this->merge($data);
@@ -30,12 +58,27 @@ class UpdateProductRequest extends FormRequest
         return [
             'name' => 'sometimes|string|max:255',
             'description' => 'sometimes|nullable|string',
+            'short_description' => 'sometimes|nullable|string|max:500',
+            'long_description' => 'sometimes|nullable|string',
             'price' => 'sometimes|numeric|min:0.01',
             'sale_price' => 'sometimes|nullable|numeric|min:0|lt:price',
             'sale_ends_at' => 'sometimes|nullable|date|after:now',
             'stock' => 'sometimes|integer|min:0',
             'free_delivery' => 'sometimes|boolean',
+            'has_variants' => 'sometimes|boolean',
+            'variant_options' => 'sometimes|nullable|array',
+            'variant_options.*' => 'nullable|array',
+            'variant_options.*.*' => 'nullable|string|max:80',
+            'variant_prices' => 'sometimes|nullable|array',
+            'variant_prices.*' => 'nullable|array',
+            'variant_prices.*.*' => 'nullable|numeric|min:0.01',
+            'variant_color_names' => 'nullable|array|max:30',
+            'variant_color_names.*' => 'nullable|string|max:80',
+            'variant_color_images' => 'nullable|array|max:30',
+            'variant_color_images.*' => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'image' => 'sometimes|nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'video' => 'sometimes|nullable|file|mimes:mp4,mov,webm|max:51200',
+            'remove_video' => 'sometimes|boolean',
             'images' => 'sometimes|array|max:5',
             'images.*' => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
             'category_id' => 'sometimes|exists:categories,id',
@@ -48,6 +91,8 @@ class UpdateProductRequest extends FormRequest
             'sale_price.lt' => 'Le prix promo doit etre inferieur au prix normal.',
             'sale_ends_at.after' => 'La date de fin de promotion doit etre dans le futur.',
             'image.max' => 'L image principale ne doit pas depasser 5 Mo.',
+            'video.mimes' => 'La video doit etre au format MP4, MOV ou WEBM.',
+            'video.max' => 'La video produit ne doit pas depasser 50 Mo.',
             'images.*.max' => 'Chaque image supplementaire ne doit pas depasser 5 Mo.',
         ];
     }

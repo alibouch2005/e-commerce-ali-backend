@@ -19,6 +19,7 @@ class CartItemResource extends JsonResource
             'product' => new ProductResource($this->whenLoaded('product')),
             'price' => $this->price,
             'quantity' => $this->quantity,
+            'selected_options' => $this->selected_options ?: [],
             'total_price' => $this->price * $this->quantity,
         ];
     }

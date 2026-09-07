@@ -14,7 +14,15 @@ class CartItem extends Model
         'product_id',
         'quantity',
         'price',
+        'selected_options',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'selected_options' => 'array',
+        ];
+    }
 
     // CartItem n ─── 1 Cart (plusieurs items de panier peuvent appartenir à un même panier)
     public function cart()

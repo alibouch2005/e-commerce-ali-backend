@@ -80,7 +80,17 @@
         <tbody>
             @foreach($order->items as $item)
                 <tr>
-                    <td>{{ $item->product->name ?? 'Produit' }}</td>
+                    <td>
+                        {{ $item->product->name ?? 'Produit' }}
+                        @if(! empty($item->selected_options))
+                            <br>
+                            <small>
+                                @foreach($item->selected_options as $key => $value)
+                                    {{ ucfirst($key) }}: {{ $value }}@if(! $loop->last), @endif
+                                @endforeach
+                            </small>
+                        @endif
+                    </td>
                     <td class="right">{{ number_format($item->price, 2) }} DH</td>
                     <td class="right">{{ $item->quantity }}</td>
                     <td class="right">{{ number_format($item->price * $item->quantity, 2) }} DH</td>

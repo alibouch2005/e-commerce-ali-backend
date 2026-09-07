@@ -86,8 +86,10 @@ class CartController extends Controller
         $product = Product::where('id', $request->product_id)
             ->where('stock', '>', 0)
             ->firstOrFail();
+        $selectedOptions = $this->normalizeSelectedOptions($product, $request->input('selected_options', []));
+        $unitPrice = $product->currentPriceForOptions($selectedOptions);
 
-        $item = $cart->items()->where('product_id', $product->id)->first();
+        $item = $this->findMatchingItem($cart, $product, $selectedOptions);
 
         $currentQty = $item ? $item->quantity : 0;
         $newQty = $currentQty + $request->quantity;
@@ -99,6 +101,7 @@ class CartController extends Controller
 
             $item->update([
                 'quantity' => $newQty,
+                'price' => $unitPrice,
             ]);
 
         } else {
@@ -107,7 +110,8 @@ class CartController extends Controller
                 'cart_id' => $cart->id,
                 'product_id' => $product->id,
                 'quantity' => min($request->quantity, $product->stock),
-                'price' => $product->current_price,
+                'price' => $unitPrice,
+                'selected_options' => $selectedOptions,
             ]);
 
         }
@@ -212,13 +216,14 @@ class CartController extends Controller
                 continue;
             }
 
-            $targetItem = $userCart->items()->where('product_id', $guestItem->product_id)->first();
+            $targetItem = $this->findMatchingItem($userCart, $product, $guestItem->selected_options);
             $nextQuantity = min($product->stock, ($targetItem?->quantity ?? 0) + $guestItem->quantity);
+            $unitPrice = $product->currentPriceForOptions($guestItem->selected_options);
 
             if ($targetItem) {
                 $targetItem->update([
                     'quantity' => $nextQuantity,
-                    'price' => $product->current_price,
+                    'price' => $unitPrice,
                 ]);
 
                 continue;
@@ -227,11 +232,53 @@ class CartController extends Controller
             $userCart->items()->create([
                 'product_id' => $guestItem->product_id,
                 'quantity' => min($product->stock, $guestItem->quantity),
-                'price' => $product->current_price,
+                'price' => $unitPrice,
+                'selected_options' => $guestItem->selected_options,
             ]);
         }
 
         $guestCart->items()->delete();
         $guestCart->delete();
+    }
+
+    private function findMatchingItem(Cart $cart, Product $product, ?array $selectedOptions): ?CartItem
+    {
+        $query = $cart->items()->where('product_id', $product->id);
+
+        if (empty($selectedOptions)) {
+            $query->whereNull('selected_options');
+        } else {
+            $query->where('selected_options', json_encode($selectedOptions, JSON_UNESCAPED_UNICODE));
+        }
+
+        return $query->first();
+    }
+
+    private function normalizeSelectedOptions(Product $product, array $selectedOptions): ?array
+    {
+        $availableOptions = collect($product->variant_options ?: [])
+            ->map(fn ($values) => collect($values)->filter()->values()->all())
+            ->filter(fn ($values) => count($values) > 0)
+            ->all();
+
+        if (! $product->has_variants || count($availableOptions) === 0) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach ($availableOptions as $key => $values) {
+            $value = trim((string) ($selectedOptions[$key] ?? ''));
+            if ($value === '' || ! in_array($value, $values, true)) {
+                abort(response()->json([
+                    'message' => "Choisissez une option valide pour {$key}.",
+                    'errors' => ['selected_options' => ["Option {$key} invalide."]],
+                ], 422));
+            }
+            $normalized[$key] = $value;
+        }
+
+        ksort($normalized);
+
+        return $normalized;
     }
 }

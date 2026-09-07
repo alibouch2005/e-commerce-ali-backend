@@ -14,7 +14,15 @@ class OrderItem extends Model
         'product_id',
         'quantity',
         'price',
+        'selected_options',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'selected_options' => 'array',
+        ];
+    }
 
     // OrderItem n ─── 1 Order (plusieurs items de commande peuvent appartenir à une même commande)
     public function order()

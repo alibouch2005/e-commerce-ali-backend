@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900">
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="28" stdDeviation="24" flood-color="#0f172a" flood-opacity=".18"/>
+    </filter>
+  </defs>
+  <rect width="900" height="900" fill="url(#bg)"/>
+  <circle cx="700" cy="180" r="120" fill="#f59e0b" opacity=".16"/>
+  <circle cx="180" cy="720" r="150" fill="#92400e" opacity=".08"/>
+  <rect x="180" y="150" width="540" height="540" rx="80" fill="#fff" filter="url(#shadow)"/>
+  <rect x="250" y="230" width="400" height="300" rx="56" fill="#f59e0b" opacity=".92"/>
+  <circle cx="342" cy="330" r="58" fill="#fff" opacity=".82"/>
+  <rect x="420" y="292" width="158" height="36" rx="18" fill="#fff" opacity=".82"/>
+  <rect x="420" y="350" width="112" height="28" rx="14" fill="#fff" opacity=".5"/>
+  <path d="M280 522c58-88 130-112 216-72 48 22 88 16 124-18v98H280z" fill="#92400e" opacity=".32"/>
+  <text x="450" y="645" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="44" font-weight="800" fill="#0f172a">Farine</text>
+  <text x="450" y="702" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="24" font-weight="700" fill="#4f46e5">1kg - 10kg</text>
+  <text x="450" y="790" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" font-weight="700" fill="#64748b">AliShop Demo</text>
+</svg>

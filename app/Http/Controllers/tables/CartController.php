@@ -44,8 +44,10 @@ class CartController extends Controller
     {
         $cart = $this->getOrCreateCart($request->user());
         $product = Product::findOrFail($request->product_id);
+        $selectedOptions = $this->normalizeSelectedOptions($product, $request->input('selected_options', []));
+        $unitPrice = $product->currentPriceForOptions($selectedOptions);
 
-        $item = $cart->items()->where('product_id', $product->id)->first();
+        $item = $this->findMatchingItem($cart, $product, $selectedOptions);
 
         // check stock availability
         $currentQuantity = $item ? $item->quantity : 0;
@@ -60,12 +62,14 @@ class CartController extends Controller
 
         if ($item) {
             $item->quantity = $newTotalQty;
+            $item->price = $unitPrice;
             $item->save();
         } else {
             $cart->items()->create([
                 'product_id' => $product->id,
                 'quantity' => $request->quantity,
-                'price' => $product->current_price,
+                'price' => $unitPrice,
+                'selected_options' => $selectedOptions,
             ]);
         }
 
@@ -125,5 +129,46 @@ class CartController extends Controller
         if ($item->cart->user_id !== Auth::id()) {
             abort(403, 'Unauthorized cart item');
         }
+    }
+
+    private function findMatchingItem(Cart $cart, Product $product, ?array $selectedOptions): ?CartItem
+    {
+        $query = $cart->items()->where('product_id', $product->id);
+
+        if (empty($selectedOptions)) {
+            $query->whereNull('selected_options');
+        } else {
+            $query->where('selected_options', json_encode($selectedOptions, JSON_UNESCAPED_UNICODE));
+        }
+
+        return $query->first();
+    }
+
+    private function normalizeSelectedOptions(Product $product, array $selectedOptions): ?array
+    {
+        $availableOptions = collect($product->variant_options ?: [])
+            ->map(fn ($values) => collect($values)->filter()->values()->all())
+            ->filter(fn ($values) => count($values) > 0)
+            ->all();
+
+        if (! $product->has_variants || count($availableOptions) === 0) {
+            return null;
+        }
+
+        $normalized = [];
+        foreach ($availableOptions as $key => $values) {
+            $value = trim((string) ($selectedOptions[$key] ?? ''));
+            if ($value === '' || ! in_array($value, $values, true)) {
+                abort(response()->json([
+                    'message' => "Choisissez une option valide pour {$key}.",
+                    'errors' => ['selected_options' => ["Option {$key} invalide."]],
+                ], 422));
+            }
+            $normalized[$key] = $value;
+        }
+
+        ksort($normalized);
+
+        return $normalized;
     }
 }

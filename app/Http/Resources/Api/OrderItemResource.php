@@ -20,6 +20,7 @@ class OrderItemResource extends JsonResource
             'product_name' => $this->relationLoaded('product') ? $this->product?->name : null,
             'quantity' => $this->quantity,
             'price' => $this->price,
+            'selected_options' => $this->selected_options ?: [],
             'total_price' => round((float) $this->quantity * (float) $this->price, 2),
             'product' => new ProductResource($this->whenLoaded('product')),
         ];

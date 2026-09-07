@@ -13,12 +13,19 @@ class Product extends Model
     protected $fillable = [
         'name',
         'description',
+        'short_description',
+        'long_description',
         'price',
         'sale_price',
         'sale_ends_at',
         'stock',
         'free_delivery',
+        'has_variants',
+        'variant_options',
+        'variant_media',
+        'variant_prices',
         'image',
+        'video',
         'category_id',
     ];
 
@@ -58,6 +65,10 @@ class Product extends Model
         return [
             'sale_ends_at' => 'datetime',
             'free_delivery' => 'boolean',
+            'has_variants' => 'boolean',
+            'variant_options' => 'array',
+            'variant_media' => 'array',
+            'variant_prices' => 'array',
         ];
     }
 
@@ -69,5 +80,34 @@ class Product extends Model
     public function getCurrentPriceAttribute(): float
     {
         return $this->is_on_sale ? (float) $this->sale_price : (float) $this->price;
+    }
+
+    public function currentPriceForOptions(?array $selectedOptions = null): float
+    {
+        $selectedOptions = $selectedOptions ?: [];
+        $variantPrices = $this->variant_prices ?: [];
+
+        if (count($selectedOptions) > 1 && isset($variantPrices['_combinations']) && is_array($variantPrices['_combinations'])) {
+            $combination = $selectedOptions;
+            ksort($combination);
+            $combinationKey = collect($combination)
+                ->map(fn ($value, $group) => "{$group}={$value}")
+                ->implode('|');
+            $price = $variantPrices['_combinations'][$combinationKey] ?? null;
+
+            if ($price !== null && $price !== '' && is_numeric($price)) {
+                return round((float) $price, 2);
+            }
+        }
+
+        foreach ($selectedOptions as $group => $value) {
+            $price = $variantPrices[$group][$value] ?? null;
+
+            if ($price !== null && $price !== '' && is_numeric($price)) {
+                return round((float) $price, 2);
+            }
+        }
+
+        return round((float) $this->current_price, 2);
     }
 }

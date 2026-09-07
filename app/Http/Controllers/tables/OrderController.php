@@ -40,9 +40,29 @@ class OrderController extends Controller
             ->with(['items.product', 'livreur', 'delivery'])->latest()->paginate(15));
     }
 
-    public function adminIndex()
+    public function adminIndex(Request $request)
     {
-        return OrderResource::collection(Order::with(['user', 'livreur', 'items.product', 'delivery'])->latest()->paginate(30));
+        $query = Order::with(['user', 'livreur', 'items.product', 'delivery']);
+
+        if ($request->filled('status')) {
+            $query->where('status', $request->string('status'));
+        }
+
+        if ($request->filled('search')) {
+            $search = trim((string) $request->search);
+            $query->where(function ($orders) use ($search) {
+                $orders->whereKey((int) $search)
+                    ->orWhere('phone', 'like', "%{$search}%")
+                    ->orWhere('adresse_livraison', 'like', "%{$search}%")
+                    ->orWhereHas('user', fn ($users) => $users
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%"));
+            });
+        }
+
+        $perPage = min(max($request->integer('per_page', 20), 10), 50);
+
+        return OrderResource::collection($query->latest()->paginate($perPage)->withQueryString());
     }
 
     public function deliveryQuote(Request $request, DeliveryPricingService $pricing)
@@ -129,6 +149,7 @@ class OrderController extends Controller
                     'product_id' => $product->id,
                     'quantity' => $orderedQuantity,
                     'price' => $item->price,
+                    'selected_options' => $item->selected_options,
                 ]);
             }
 

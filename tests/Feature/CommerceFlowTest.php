@@ -161,6 +161,117 @@ class CommerceFlowTest extends TestCase
         ]);
     }
 
+    public function test_product_variants_are_kept_from_cart_to_order(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create([
+            'price' => 150,
+            'stock' => 5,
+            'has_variants' => true,
+            'variant_options' => [
+                'color' => ['Noir', 'Blanc'],
+                'size' => ['S', 'M', 'L'],
+            ],
+        ]);
+
+        $this->actingAs($client)->postJson('/api/cart/add', [
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'selected_options' => [
+                'color' => 'Noir',
+                'size' => 'M',
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.items.0.selected_options.color', 'Noir')
+            ->assertJsonPath('data.items.0.selected_options.size', 'M');
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+        ])->assertCreated()
+            ->assertJsonPath('data.items.0.selected_options.color', 'Noir')
+            ->assertJsonPath('data.items.0.selected_options.size', 'M');
+
+        $this->assertDatabaseHas('order_items', [
+            'product_id' => $product->id,
+            'quantity' => 2,
+        ]);
+    }
+
+    public function test_variant_price_is_used_in_cart_and_checkout(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create([
+            'price' => 14.5,
+            'stock' => 20,
+            'has_variants' => true,
+            'variant_options' => [
+                'weight' => ['1kg', '5kg', '10kg'],
+            ],
+            'variant_prices' => [
+                'weight' => [
+                    '1kg' => 14.5,
+                    '5kg' => 62,
+                    '10kg' => 115,
+                ],
+            ],
+        ]);
+
+        $this->actingAs($client)->postJson('/api/cart/add', [
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'selected_options' => [
+                'weight' => '5kg',
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.items.0.price', 62)
+            ->assertJsonPath('data.items.0.total_price', 124);
+
+        $this->actingAs($client)->postJson('/api/checkout', [
+            'adresse_livraison' => 'Casablanca',
+            'phone' => '0612345678',
+            'payment_method' => 'cash_on_delivery',
+            'fulfillment_method' => 'delivery',
+        ])->assertCreated()
+            ->assertJsonPath('data.total_price', 154)
+            ->assertJsonPath('data.items.0.price', 62);
+    }
+
+    public function test_combination_variant_price_is_used_when_two_options_define_the_product(): void
+    {
+        $client = User::factory()->client()->create();
+        $product = Product::factory()->create([
+            'price' => 8.5,
+            'stock' => 20,
+            'has_variants' => true,
+            'variant_options' => [
+                'weight' => ['500ml', '1L', '2L'],
+                'custom' => ['Unite', 'Pack x6'],
+            ],
+            'variant_prices' => [
+                '_combinations' => [
+                    'custom=Unite|weight=500ml' => 8.5,
+                    'custom=Unite|weight=2L' => 16,
+                    'custom=Pack x6|weight=500ml' => 49,
+                    'custom=Pack x6|weight=2L' => 89,
+                ],
+            ],
+        ]);
+
+        $this->actingAs($client)->postJson('/api/cart/add', [
+            'product_id' => $product->id,
+            'quantity' => 1,
+            'selected_options' => [
+                'weight' => '2L',
+                'custom' => 'Pack x6',
+            ],
+        ])->assertCreated()
+            ->assertJsonPath('data.items.0.price', 89)
+            ->assertJsonPath('data.items.0.total_price', 89);
+    }
+
     public function test_public_products_are_paginated(): void
     {
         Product::factory()->count(25)->create();
