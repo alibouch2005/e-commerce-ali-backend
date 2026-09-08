@@ -32,13 +32,13 @@ class ProductController extends Controller
         }
 
         if ($request->boolean('trending')) {
-            $query->withCount('orderItems')->orderByDesc('order_items_count')->orderByDesc('created_at');
+            $query->withCount('orderItems')->orderByDesc('order_items_count')->orderByDesc('created_at')->orderByDesc('id');
         } else {
-            $query->latest();
+            $query->orderByDesc('created_at')->orderByDesc('id');
         }
 
         $perPage = $request->integer('per_page', 12);
-        $perPage = min(max($perPage, 12), 48);
+        $perPage = min(max($perPage, 1), 48);
 
         return ProductResource::collection($query->paginate($perPage)->withQueryString());
     }
